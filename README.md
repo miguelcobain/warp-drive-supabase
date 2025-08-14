@@ -35,7 +35,7 @@ export default class AppStore extends Store {
 `query` builder
 
 ```ts
-store.request(query<WorkOrder>('post', {
+store.request(query<Post>('post', {
   include: ['comments', 'author'] // these includes are typed!
 }))
 ```
