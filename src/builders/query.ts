@@ -6,12 +6,25 @@ import type { CollectionResourceDataDocument } from '@warp-drive/core/types/spec
 import { buildBaseURL, buildQueryParams, type QueryUrlOptions } from '@warp-drive/utilities';
 import { pluralize } from '@warp-drive/utilities/string';
 
-import { serializePostgrestSelect } from './utils/query-params';
+import { serializePostgrestSelect, serializePostgrestOrder } from './utils/query-params';
 
 import type { Includes } from '@warp-drive/core-types/record';
 
+type Direction = 'asc' | 'desc';
+type Nulls = 'nullsfirst' | 'nullslast';
+
+// Accept any string BEFORE the dot, but only certain suffixes
+type OrderString =
+  | `${string}.${Direction}`
+  | `${string}.${Nulls}`
+  | `${string}.${Direction}.${Nulls}`;
+
+type Filters = Record<string, string | Array<string>>;
+
 interface QueryOptions<T = unknown> {
   include?: T extends TypedRecordInstance ? Includes<T>[] : string | string[];
+  order?: OrderString[]; // TODO: can we make this more type-safe to enforce the given schema's fields?
+  filter?: Filters;
 };
 
 type QueryRequestOptions<RT = unknown, T = unknown> = BaseQueryRequestOptions<RT, T> & {
@@ -42,9 +55,14 @@ export function query(
   headers.append('Accept', 'application/json;charset=utf-8');
 
   const url = buildBaseURL(urlOptions);
-  const queryString = buildQueryParams({
-    select: serializePostgrestSelect(options.include)
-  });
+
+  const queryParams = new URLSearchParams();
+
+  queryParams.append('select', serializePostgrestSelect(options.include));
+  queryParams.append('order', serializePostgrestOrder(options.order));
+  appendQueryParams(options.filter, queryParams);
+
+  const queryString = buildQueryParams(queryParams);
 
   return {
     url: queryString ? `${url}?${queryString}` : url,
@@ -55,4 +73,16 @@ export function query(
       type: type
     }
   };
+}
+
+function appendQueryParams(params: Filters = {}, searchParams: URLSearchParams) {
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) {
+      for (const v of value) {
+        searchParams.append(key, String(v));
+      }
+    } else {
+      searchParams.append(key, String(value));
+    }
+  }
 }

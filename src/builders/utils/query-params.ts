@@ -20,5 +20,12 @@ export function serializeIncludes(paths: string | string[]): string[] {
 export function serializePostgrestSelect(includes: string | string[] = []): string {
   return [
     ...serializeIncludes(includes),
-  ].join(',');
+  ]
+  // we sort the paths to make the final url "stable"
+  .sort()
+  .join(',');
+}
+
+export function serializePostgrestOrder(orders: string[] = []): string {
+  return orders.sort().join(',');
 }

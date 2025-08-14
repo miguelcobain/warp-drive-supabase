@@ -37,6 +37,10 @@ export default class AppStore extends Store {
 ```ts
 store.request(query<Post>('post', {
   include: ['comments', 'author'] // these includes are typed!
+  order: ['start_date.asc'],
+  filter: {
+    date: 'gte.2023-10-01T00:00:00Z', // can also be an array to apply multiple conditions to the same column
+  },
 }))
 ```
 
