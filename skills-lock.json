@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "ember-best-practices": {
+      "source": "ember-tooling/agent-skills",
+      "sourceType": "github",
+      "computedHash": "7909c3def6c4ddefb358d1973cf724269ede9f6cdba1dd2888e4e6072a897f3e"
+    }
+  }
+}

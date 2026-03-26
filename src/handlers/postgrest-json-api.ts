@@ -1,25 +1,24 @@
-import type { Handler, NextFn } from '@ember-data/request';
-import type { StoreRequestContext } from '@ember-data/store';
-
+import type { Handler, NextFn } from '@warp-drive/core/request';
 import { serializeToJsonAPI } from './utils/json-api-serializer';
+import type { StoreRequestContext } from '@warp-drive/core';
 
-export const PostgrestJsonApiHandler: Handler = {
+export const SupabaseJsonApiHandler: Handler = {
   async request<T>(context: StoreRequestContext, next: NextFn<T>) {
-    const result: any = await next(context.request);
-
-    if (typeof context.request.options?.['type'] !== 'string') {
-      return context.request;
+    // if we don't know the resource type, don't try to transform
+    if (typeof context.request.options?.type !== 'string') {
+      return next(context.request);
     }
+
+    const result: any = await next(context.request);
 
     // get JSON body (Fetch usually gives you parsed JSON in result.content; fall back to response.json())
     const raw = result?.content ?? (await result.response?.json?.());
-    const data = context.request.op === 'findRecord' && Array.isArray(raw) && raw.length === 1 ? raw[0] : raw;
 
-    const jsonApiDocument = serializeToJsonAPI(context.request.store.schema, data, context.request.options['type'])
+    const jsonApiDocument = serializeToJsonAPI(context.request.store.schema, raw, context.request.options['type'])
 
     // return same envelope, but with JSON:API content so the Store can update the JSONAPICache
     return { ...result, content: jsonApiDocument };
   }
 };
 
-export default PostgrestJsonApiHandler;
+export default SupabaseJsonApiHandler;

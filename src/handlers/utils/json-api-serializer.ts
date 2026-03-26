@@ -3,7 +3,8 @@ import { pluralize, underscore } from '@warp-drive/utilities/string';
 
 interface JSONAPIRelationship {
   data: { id: string; type: string } | null,
-  meta?: Record<string, unknown>
+  meta?: Record<string, unknown>,
+  links?: Record<string, unknown>
 }
 
 interface JSONAPIResource {
@@ -43,13 +44,14 @@ export function serializeToJsonAPI(
     for (const [key, field] of schema.entries()) {
       if (key === 'id') continue;
 
-      if (field.kind === 'attribute') {
+      if (field.kind === 'attribute' || field.kind === 'field') {
         attributes[key] = record[underscore(key)];
       } else if (field.kind === 'belongsTo') {
         const relId = record[`${underscore(key)}_id`];
         const relType = field.type;
         relationships[field.name] = {
           data: relId ? { id: relId, type: relType } : null,
+          links: { related: '/records/123' }
         };
 
         const includedRel = record[pluralize(field.name)];

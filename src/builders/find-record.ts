@@ -52,7 +52,9 @@ export function findRecord<T>(
   const url = buildBaseURL(urlOptions);
 
   const headers = new Headers();
-  headers.append('Accept', 'application/json;charset=utf-8');
+  // Set the content type to application/vnd.pgrst.object+json to request a single object
+  // https://docs.postgrest.org/en/latest/references/api/resource_representation.html#singular-or-plural
+  headers.append('Accept', 'application/vnd.pgrst.object+json');
 
   const params = buildQueryParams({
     id: `eq.${identifier.id}`,

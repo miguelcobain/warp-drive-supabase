@@ -6,7 +6,7 @@ import type { CollectionResourceDataDocument } from '@warp-drive/core/types/spec
 import { buildBaseURL, buildQueryParams, type QueryUrlOptions } from '@warp-drive/utilities';
 import { pluralize } from '@warp-drive/utilities/string';
 
-import { serializePostgrestSelect, serializePostgrestOrder } from './utils/query-params';
+import { serializePostgrestSelect, serializePostgrestOrder, serializePostgrestFields } from './utils/query-params';
 
 import type { Includes } from '@warp-drive/core-types/record';
 
@@ -24,10 +24,11 @@ type Filters = Record<string, string | Array<string>>;
 interface QueryOptions<T = unknown> {
   include?: T extends TypedRecordInstance ? Includes<T>[] : string | string[];
   order?: OrderString[]; // TODO: can we make this more type-safe to enforce the given schema's fields?
+  fields?: string[]; // TODO: can we make this more type-safe to enforce the given schema's fields?
   filter?: Filters;
 };
 
-type QueryRequestOptions<RT = unknown, T = unknown> = BaseQueryRequestOptions<RT, T> & {
+type QueryRequestOptions<RT = unknown> = BaseQueryRequestOptions<RT> & {
   options?: Record<string, unknown>;
 };
 
@@ -58,8 +59,16 @@ export function query(
 
   const queryParams = new URLSearchParams();
 
-  queryParams.append('select', serializePostgrestSelect(options.include));
-  queryParams.append('order', serializePostgrestOrder(options.order));
+  let select = serializePostgrestSelect(options.include);
+
+  if (Array.isArray(options.fields) && options.fields.length > 0) {
+    select = serializePostgrestFields(options.fields) + ',' + select;
+  }
+
+  queryParams.append('select', select);
+  if (options.order) {
+    queryParams.append('order', serializePostgrestOrder(options.order));
+  }
   appendQueryParams(options.filter, queryParams);
 
   const queryString = buildQueryParams(queryParams);

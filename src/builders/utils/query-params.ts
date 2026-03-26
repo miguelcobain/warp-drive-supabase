@@ -2,7 +2,7 @@ import { assert } from '@ember/debug';
 import { pluralize, underscore } from '@warp-drive/utilities/string';
 
 export function serializeIncludes(paths: string | string[]): string[] {
-  let normalizedPaths = Array.isArray(paths) ? paths : paths.split(',');
+  const normalizedPaths = Array.isArray(paths) ? paths : paths.split(',');
 
   return [
     '*',
@@ -11,7 +11,7 @@ export function serializeIncludes(paths: string | string[]): string[] {
 
       assert('serializeIncludes requires at least one path segment', typeof first === 'string');
 
-      return `${pluralize(underscore(first))}(${serializeIncludes(remaining)})`;
+      return `${pluralize(underscore(first))}(${serializeIncludes(remaining).sort().join(',')})`;
     }),
   ];
 }
@@ -28,4 +28,8 @@ export function serializePostgrestSelect(includes: string | string[] = []): stri
 
 export function serializePostgrestOrder(orders: string[] = []): string {
   return orders.sort().join(',');
+}
+
+export function serializePostgrestFields(fields: string[] = []): string {
+  return fields.sort().join(',');
 }
