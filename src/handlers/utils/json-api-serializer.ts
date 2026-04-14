@@ -1,5 +1,5 @@
 import type { SchemaService } from '@warp-drive/core/types';
-import { pluralize, underscore } from '@warp-drive/utilities/string';
+import { pluralizeType, underscore } from '../../utils/string';
 
 interface JSONAPIRelationship {
   data: { id: string; type: string } | null,
@@ -18,13 +18,13 @@ interface JSONAPIResource {
 }
 
 interface JSONAPIResponse {
-  data: JSONAPIResource | JSONAPIResource[];
+  data: JSONAPIResource | JSONAPIResource[] | null;
   included?: JSONAPIResource[];
 }
 
 export function serializeToJsonAPI(
   schemaService: SchemaService,
-  input: Record<string, any> | Record<string, any>[],
+  input: Record<string, any> | Record<string, any>[] | null,
   type: string
 ): JSONAPIResponse {
   const includedMap = new Map<string, JSONAPIResource>();
@@ -35,50 +35,68 @@ export function serializeToJsonAPI(
 
   function serializeRecord(
     record: Record<string, any>,
-    type: string
+    type: string,
+    trail = new Set<string>()
   ): JSONAPIResource {
     const schema = getSchemaForType(type);
     const attributes: Record<string, unknown> = {};
     const relationships: JSONAPIResource['relationships'] = {};
+    const recordKey = `${type}:${record['id']}`;
+    const nextTrail = new Set(trail);
+    nextTrail.add(recordKey);
 
     for (const [key, field] of schema.entries()) {
       if (key === 'id') continue;
 
       if (field.kind === 'attribute' || field.kind === 'field') {
-        attributes[key] = record[underscore(key)];
+        const attributeKey = underscore(key);
+        if (attributeKey in record) {
+          attributes[key] = record[attributeKey];
+        }
       } else if (field.kind === 'belongsTo') {
-        const relId = record[`${underscore(key)}_id`];
+        const relationshipName = field.name ?? key;
+        const relId = record[`${underscore(relationshipName)}_id`];
         const relType = field.type;
-        relationships[field.name] = {
-          data: relId ? { id: relId, type: relType } : null,
-          links: { related: '/records/123' }
+        relationships[relationshipName] = {
+          data: relId ? { id: String(relId), type: relType } : null,
         };
 
-        const includedRel = record[pluralize(field.name)];
+        const includedRel = record[pluralizeType(underscore(relationshipName))];
         if (includedRel?.id) {
           const includedMapKey = `${relType}-${includedRel.id}`;
           if (!includedMap.has(includedMapKey)) {
-            const serialized = serializeRecord(includedRel, relType);
+            const nestedRecordKey = `${relType}:${includedRel.id}`;
+            if (nextTrail.has(nestedRecordKey)) {
+              continue;
+            }
+            const serialized = serializeRecord(includedRel, relType, nextTrail);
             includedMap.set(includedMapKey, serialized);
           }
         }
       } else if (field.kind === 'hasMany') {
-        const rels = Array.isArray(record[pluralize(field.name)]) ? record[pluralize(field.name)] : null;
+        const relationshipName = field.name ?? key;
+        const rels = Array.isArray(record[pluralizeType(underscore(relationshipName))])
+          ? record[pluralizeType(underscore(relationshipName))]
+          : null;
         const relType = field.type;
 
         if (!rels) {
           continue;
         }
 
-        relationships[field.name] = {
-          data: rels.map((rel: any) => ({ id: rel.id, type: relType })),
+        relationships[relationshipName] = {
+          data: rels.map((rel: any) => ({ id: String(rel.id), type: relType })),
         };
 
         for (const rel of rels) {
           if (rel?.id) {
             const includedMapKey = `${relType}-${rel.id}`;
             if (!includedMap.has(includedMapKey)) {
-              const serialized = serializeRecord(rel, relType);
+              const nestedRecordKey = `${relType}:${rel.id}`;
+              if (nextTrail.has(nestedRecordKey)) {
+                continue;
+              }
+              const serialized = serializeRecord(rel, relType, nextTrail);
               includedMap.set(includedMapKey, serialized);
             }
           }
@@ -87,11 +105,15 @@ export function serializeToJsonAPI(
     }
 
     return {
-      id: record['id'],
+      id: String(record['id']),
       type,
       attributes,
       relationships,
     };
+  }
+
+  if (input === null) {
+    return { data: null };
   }
 
   const isArray = Array.isArray(input);

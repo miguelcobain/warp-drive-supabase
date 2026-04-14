@@ -1,14 +1,10 @@
-import { underscore } from '@ember/string';
-import type { TypedRecordInstance, TypeFromInstance } from '@warp-drive/core/types/record';
+import type { TypedRecordInstance, TypeFromInstance, Includes } from '@warp-drive/core/types/record';
 import type { QueryRequestOptions as BaseQueryRequestOptions } from '@warp-drive/core/types/request';
 import type { CollectionResourceDataDocument } from '@warp-drive/core/types/spec/document';
 
-import { buildBaseURL, buildQueryParams, type QueryUrlOptions } from '@warp-drive/utilities';
-import { pluralize } from '@warp-drive/utilities/string';
-
-import { serializePostgrestSelect, serializePostgrestOrder, serializePostgrestFields } from './utils/query-params';
-
-import type { Includes } from '@warp-drive/core-types/record';
+import { serializePostgrestSelect, serializePostgrestOrder } from './utils/query-params';
+import { pluralizeType, underscore } from '../utils/string';
+import { buildBaseURL, buildQueryParams, type QueryUrlOptions } from '../utils/url';
 
 type Direction = 'asc' | 'desc';
 type Nulls = 'nullsfirst' | 'nullslast';
@@ -22,11 +18,11 @@ type OrderString =
 type Filters = Record<string, string | Array<string>>;
 
 interface QueryOptions<T = unknown> {
-  include?: T extends TypedRecordInstance ? Includes<T>[] : string | string[];
+  include?: T extends TypedRecordInstance ? Includes<T> | Includes<T>[] : string | string[];
   order?: OrderString[]; // TODO: can we make this more type-safe to enforce the given schema's fields?
   fields?: string[]; // TODO: can we make this more type-safe to enforce the given schema's fields?
   filter?: Filters;
-};
+}
 
 type QueryRequestOptions<RT = unknown> = BaseQueryRequestOptions<RT> & {
   options?: Record<string, unknown>;
@@ -49,7 +45,7 @@ export function query(
   const urlOptions: QueryUrlOptions = {
     identifier: { type },
     op: 'query',
-    resourcePath: pluralize(underscore(type)),
+    resourcePath: pluralizeType(underscore(type)),
   };
 
   const headers = new Headers();
@@ -59,11 +55,7 @@ export function query(
 
   const queryParams = new URLSearchParams();
 
-  let select = serializePostgrestSelect(options.include);
-
-  if (Array.isArray(options.fields) && options.fields.length > 0) {
-    select = serializePostgrestFields(options.fields) + ',' + select;
-  }
+  const select = serializePostgrestSelect(options.include, options.fields);
 
   queryParams.append('select', select);
   if (options.order) {

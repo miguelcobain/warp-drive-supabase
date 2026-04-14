@@ -1,0 +1,65 @@
+{
+  "name": "warp-drive-supabase",
+  "version": "0.1.0",
+  "description": "Supabase request builders and handlers for Warp Drive",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "packageManager": "pnpm@10.28.2",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./builders": {
+      "types": "./dist/builders.d.ts",
+      "import": "./dist/builders.js",
+      "require": "./dist/builders.cjs"
+    },
+    "./handlers": {
+      "types": "./dist/handlers.d.ts",
+      "import": "./dist/handlers.js",
+      "require": "./dist/handlers.cjs"
+    },
+    "./auth": {
+      "types": "./dist/auth.d.ts",
+      "import": "./dist/auth.js",
+      "require": "./dist/auth.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "clean": "rimraf dist .tmp",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "pack:check": "pnpm build && pnpm pack",
+    "smoke:pack": "node ./scripts/smoke-consumer.mjs"
+  },
+  "peerDependencies": {
+    "@warp-drive/core": ">=5.7.0 <6"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "@types/pluralize": "^0.0.33",
+    "@warp-drive/core": "^5.7.0",
+    "pluralize": "^8.0.0",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

@@ -1,0 +1,6 @@
+dist
+node_modules
+.pnpm-store
+.tmp
+coverage
+*.tgz

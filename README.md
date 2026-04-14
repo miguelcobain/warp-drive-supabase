@@ -1,60 +1,153 @@
 # warp-drive-supabase
 
-## Usage
+Supabase request builders and handlers for [Warp Drive](https://warp-drive.io/).
 
-Setup the store
+The package turns PostgREST and Supabase responses into request payloads that Warp Drive can consume without copying app-local glue into every project.
+
+## Install
+
+```sh
+pnpm add warp-drive-supabase @warp-drive/core
+```
+
+## What It Exports
+
+Root exports:
+
+- `query`
+- `findRecord`
+- `createRecord`
+- `updateRecord`
+- `SupabaseJsonApiHandler`
+- `SupabaseUpdatesHandler`
+- `createSupabaseAuthHandler`
+
+Subpath exports:
+
+- `warp-drive-supabase/builders`
+- `warp-drive-supabase/handlers`
+- `warp-drive-supabase/auth`
+
+## Read Path
 
 ```ts
-// app/services/store.ts
-import { assert } from '@ember/debug';
-import { setOwner, getOwner } from '@ember/owner';
-
-import Store, { CacheHandler } from '@ember-data/store';
+import { RequestManager } from '@warp-drive/core';
 import Fetch from '@ember-data/request/fetch';
-import SupabaseJsonApiHandler from 'my-app/handlers/postgrest-json-api';
-import SupabaseAuthHandler from 'my-app/handlers/supabase-auth';
+import {
+  findRecord,
+  query,
+  SupabaseJsonApiHandler,
+  createSupabaseAuthHandler,
+} from 'warp-drive-supabase';
 
-export default class AppStore extends Store {
-  constructor(object: object) {
-    super(object);
+const requestManager = new RequestManager().use([
+  createSupabaseAuthHandler({
+    apiKey: ENV.supabase.key,
+    getAccessToken: async () => {
+      const session = await supabase.client.auth.getSession();
+      return session.data.session?.access_token ?? null;
+    },
+  }),
+  SupabaseJsonApiHandler,
+  Fetch,
+]);
 
-    let owner = getOwner(object);
-    assert('AppStore must be instantiated with an owner', owner && owner instanceof ApplicationInstance);
-    setOwner(this, owner);
+store.request(
+  query<Post>('post', {
+    include: ['comments.author', 'author'],
+    order: ['start_date.asc'],
+    filter: {
+      published_at: 'eq.true',
+    },
+  })
+);
 
-    let supabaseAuthHandler = new SupabaseAuthHandler();
-    setOwner(supabaseAuthHandler, owner);
-
-    this.requestManager = new RequestManager()
-      .use([supabaseAuthHandler, SupabaseJsonApiHandler, Fetch])
-      .useCache(CacheHandler);
-  }
-
+store.request(
+  findRecord<User>('user', userId, {
+    include: ['organization.properties', 'role'],
+  })
+);
 ```
 
-`query` builder
+`query` and `findRecord` generate PostgREST-friendly URLs and `SupabaseJsonApiHandler` transforms the JSON response into a JSON:API-shaped document for Warp Drive.
+
+## Mutation Support
 
 ```ts
-store.request(query<Post>('post', {
-  include: ['comments', 'author'] // these includes are typed!
-  order: ['start_date.asc'],
-  filter: {
-    date: 'gte.2023-10-01T00:00:00Z', // can also be an array to apply multiple conditions to the same column
-  },
-}))
+import { createRecord, updateRecord, SupabaseUpdatesHandler } from 'warp-drive-supabase';
+
+const requestManager = new RequestManager().use([
+  SupabaseUpdatesHandler,
+  SupabaseJsonApiHandler,
+  Fetch,
+]);
+
+const draftPost = store.createRecord('post', {
+  title: 'Hello world',
+});
+
+await store.request(createRecord(draftPost));
+await store.request(updateRecord(post));
 ```
 
-`findRecord` builder
+`SupabaseUpdatesHandler` serializes changed attributes into mutation bodies using underscored column names.
 
-```ts
-store.request(findRecord<User>('user', userId, {
-  include: ['role', 'organization.properties'] // these includes are typed!
-}));
+## Naming Assumptions
+
+Version `0.1.x` is opinionated:
+
+- Warp Drive resource types are underscored and pluralized to derive table paths.
+- Postgres column names are underscored.
+- `belongsTo` foreign keys follow the `<relationship>_id` convention.
+- Included relation payloads are expected under pluralized relation keys returned by PostgREST.
+
+## Status
+
+Implemented today:
+
+- `query`
+- `findRecord`
+- `updateRecord`
+- `createRecord`
+- JSON:API transformation handler
+- mutation payload handler
+- package-safe Supabase auth handler factory
+- unit and integration coverage
+
+Not implemented yet:
+
+- pagination helpers
+- delete builders
+- schema-name customization hooks
+- live Supabase integration tests
+
+## Development
+
+```sh
+pnpm install
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm pack
+pnpm smoke:pack
 ```
 
-## Notes
+`pnpm smoke:pack` creates a tarball, installs it into a temporary consumer, and verifies the published exports can be imported.
 
-- I only tried this setup with `@ember-data/model`, but it shouldn't be difficult to adapt the handler to use SchemaRecord
-- everything assumes that the postgres tables are *underscored* and *pluralized* and that the columns are *underscored* (a fairly common standard)
-- The SupabaseAuthHanlder assumes an existing supabase service where you initialize the supabase client and expose it
-- Lots of things missing (pagination, create/update builders, testing, etc)
+## Publishing
+
+Before publishing:
+
+```sh
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm pack
+pnpm smoke:pack
+```
+
+Then publish with your normal `pnpm publish` flow.
+
+## Example
+
+There is a minimal consumer setup example in [`examples/basic-store-setup.ts`](examples/basic-store-setup.ts).

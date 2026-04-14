@@ -1,8 +1,8 @@
-import { underscore } from '@warp-drive/utilities/string';
-import type { Value } from '@warp-drive/core-types/json/raw';
-import type { ResourceKey } from '@warp-drive/core-types';
+import type { Value } from '@warp-drive/core/types/json/raw';
+import type { ResourceKey } from '@warp-drive/core/types/identifier';
 import type { Handler, NextFn } from '@warp-drive/core/request';
 import type { StoreRequestContext } from '@warp-drive/core';
+import { underscore } from '../utils/string';
 
 const MUTATION_OPS = new Set(['createRecord', 'updateRecord']);
 
@@ -28,11 +28,11 @@ export const SupabaseUpdatesHandler: Handler = {
     }
 
     const newRequestParams = Object.assign({}, context.request, {
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
     return next(newRequestParams);
-  }
-}
+  },
+};
 
 export default SupabaseUpdatesHandler;

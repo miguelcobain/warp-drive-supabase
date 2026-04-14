@@ -6,10 +6,10 @@ import type {
   RemotelyAccessibleIdentifier,
 } from '@warp-drive/core/types/request';
 import type { SingleResourceDataDocument } from '@warp-drive/core/types/spec/document';
-import { buildBaseURL, buildQueryParams, type QueryUrlOptions } from '@warp-drive/utilities';
-import { pluralize, underscore } from '@warp-drive/utilities/string';
 
 import { serializePostgrestSelect } from './utils/query-params';
+import { pluralizeType, underscore } from '../utils/string';
+import { buildBaseURL, buildQueryParams, type QueryUrlOptions } from '../utils/url';
 
 export type FindRecordResultDocument<T> = Omit<SingleResourceDataDocument<T>, 'data'> & { data: T };
 
@@ -46,7 +46,7 @@ export function findRecord<T>(
   const urlOptions: QueryUrlOptions = {
     identifier,
     op: 'query',
-    resourcePath: pluralize(underscore(identifier.type)),
+    resourcePath: pluralizeType(underscore(identifier.type)),
   };
 
   const url = buildBaseURL(urlOptions);

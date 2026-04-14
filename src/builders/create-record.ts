@@ -1,20 +1,16 @@
 import WarpDriveCore from '@warp-drive/core';
-import type { PersistedResourceKey, ResourceKey } from '@warp-drive/core/types/identifier';
+import type { ResourceKey } from '@warp-drive/core/types/identifier';
 import type { TypedRecordInstance } from '@warp-drive/core/types/record';
-import type { ConstrainedRequestOptions, UpdateRequestOptions as BaseUpdateRequestOptions } from '@warp-drive/core/types/request';
+import type { ConstrainedRequestOptions, CreateRequestOptions as BaseCreateRequestOptions } from '@warp-drive/core/types/request';
 import type { ReactiveDataDocument } from '@warp-drive/core/reactive';
 import { buildBaseURL, buildQueryParams, type QueryUrlOptions, type UrlOptions } from '../utils/url';
 import { pluralizeType, underscore } from '../utils/string';
 
 const { recordIdentifierFor } = WarpDriveCore as typeof import('@warp-drive/core');
 
-type UpdateRequestOptions<RT = unknown, T = unknown> = BaseUpdateRequestOptions<RT, T> & {
+type CreateRequestOptions<RT = unknown, T = unknown> = BaseCreateRequestOptions<RT, T> & {
   options?: Record<string, unknown>;
 };
-
-function isExisting(identifier: ResourceKey): identifier is PersistedResourceKey {
-  return 'id' in identifier && identifier.id !== null && 'type' in identifier && identifier.type !== null;
-}
 
 function copyForwardUrlOptions(urlOptions: UrlOptions, options: ConstrainedRequestOptions): void {
   if ('host' in options) {
@@ -28,28 +24,32 @@ function copyForwardUrlOptions(urlOptions: UrlOptions, options: ConstrainedReque
   }
 }
 
-export function updateRecord<T extends TypedRecordInstance, RT extends TypedRecordInstance = T>(
+function hasType(identifier: ResourceKey): boolean {
+  return 'type' in identifier && identifier.type !== null;
+}
+
+export function createRecord<T extends TypedRecordInstance, RT extends TypedRecordInstance = T>(
   record: T,
   options?: ConstrainedRequestOptions
-): UpdateRequestOptions<ReactiveDataDocument<RT>, T>;
-export function updateRecord(
+): CreateRequestOptions<ReactiveDataDocument<RT>, T>;
+export function createRecord(
   record: unknown,
   options?: ConstrainedRequestOptions
-): UpdateRequestOptions;
-export function updateRecord(
+): CreateRequestOptions;
+export function createRecord(
   record: unknown,
   options: ConstrainedRequestOptions = {}
-): UpdateRequestOptions {
+): CreateRequestOptions {
   const identifier = recordIdentifierFor(record);
   if (!identifier) {
-    throw new Error('updateRecord expected a Warp Drive record instance.');
+    throw new Error('createRecord expected a Warp Drive record instance.');
   }
-  if (!isExisting(identifier)) {
-    throw new Error('updateRecord requires a persisted record with both type and id.');
+  if (!hasType(identifier)) {
+    throw new Error('createRecord requires a record with a type.');
   }
 
   const urlOptions: QueryUrlOptions = {
-    identifier: identifier,
+    identifier,
     op: 'query',
     resourcePath: pluralizeType(underscore(identifier.type)),
   };
@@ -59,28 +59,28 @@ export function updateRecord(
   const url = buildBaseURL(urlOptions);
   const headers = new Headers();
 
-  // Set the content type to application/vnd.pgrst.object+json to request a single object
-  // https://docs.postgrest.org/en/latest/references/api/resource_representation.html#singular-or-plural
   headers.append('Accept', 'application/vnd.pgrst.object+json');
   headers.append('Content-Type', 'application/json');
   headers.append('Prefer', 'missing=default, return=representation');
 
-  const params = buildQueryParams({
-    id: `eq.${identifier.id}`,
-    select: '*'
-  }, options.urlParamsSettings);
+  const params = buildQueryParams(
+    {
+      select: '*',
+    },
+    options.urlParamsSettings
+  );
 
   return {
     url: `${url}?${params}`,
-    method: 'PATCH',
+    method: 'POST',
     headers,
-    op: 'updateRecord',
+    op: 'createRecord',
     data: {
       record: identifier,
     },
     records: [identifier],
     options: {
-      type: identifier.type
+      type: identifier.type,
     },
   };
 }
