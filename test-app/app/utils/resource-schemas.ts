@@ -1,5 +1,4 @@
 import { withDefaults } from '@warp-drive/core/reactive';
-import type { PolarisResourceSchema } from '@warp-drive/core/types/schema/fields';
 import { Type } from '@warp-drive/core/types/symbols';
 
 export interface User {
@@ -42,7 +41,7 @@ export interface EditablePost {
   comments: Comment[];
 }
 
-const UserSchema: PolarisResourceSchema = withDefaults({
+const UserSchema = withDefaults({
   type: 'user',
   fields: [
     { kind: 'field', name: 'firstName', sourceKey: 'first_name' },
@@ -50,7 +49,7 @@ const UserSchema: PolarisResourceSchema = withDefaults({
   ],
 });
 
-const CommentSchema: PolarisResourceSchema = withDefaults({
+const CommentSchema = withDefaults({
   type: 'comment',
   fields: [
     { kind: 'field', name: 'body' },
@@ -70,7 +69,7 @@ const CommentSchema: PolarisResourceSchema = withDefaults({
   ],
 });
 
-const PostSchema: PolarisResourceSchema = withDefaults({
+const PostSchema = withDefaults({
   type: 'post',
   fields: [
     { kind: 'field', name: 'title' },
@@ -91,8 +90,4 @@ const PostSchema: PolarisResourceSchema = withDefaults({
   ],
 });
 
-export const RESOURCE_SCHEMAS: PolarisResourceSchema[] = [
-  UserSchema,
-  CommentSchema,
-  PostSchema,
-];
+export const RESOURCE_SCHEMAS = [UserSchema, CommentSchema, PostSchema];
