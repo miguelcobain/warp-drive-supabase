@@ -51,13 +51,13 @@ Everything is available from the package root:
 
 ```ts
 import {
-  createRecord,
-  createSupabaseAuthHandler,
   findRecord,
   query,
+  createRecord,
+  updateRecord,
+  createSupabaseAuthHandler,
   SupabaseJsonApiHandler,
   SupabaseUpdatesHandler,
-  updateRecord,
 } from 'warp-drive-supabase';
 ```
 
