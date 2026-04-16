@@ -2,7 +2,7 @@
 
 Supabase request builders and handlers for [Warp Drive](https://warp-drive.io/).
 
-The package turns PostgREST and Supabase responses into request payloads that Warp Drive can consume without copying app-local glue into every project.
+This package lets a Warp Drive store talk to PostgREST and Supabase with a small, schema-aware request pipeline instead of custom glue in every app.
 
 ## Install
 
@@ -10,87 +10,221 @@ The package turns PostgREST and Supabase responses into request payloads that Wa
 pnpm add warp-drive-supabase @warp-drive/core
 ```
 
-## What It Exports
+If you are using Ember, you will usually also want:
 
-Root exports:
+```sh
+pnpm add @warp-drive/ember @warp-drive/json-api
+```
 
-- `query`
-- `findRecord`
-- `createRecord`
-- `updateRecord`
-- `SupabaseJsonApiHandler`
-- `SupabaseUpdatesHandler`
-- `createSupabaseAuthHandler`
+## Exports
 
-Subpath exports:
+### Builders
 
-- `warp-drive-supabase/builders`
-- `warp-drive-supabase/handlers`
-- `warp-drive-supabase/auth`
+These create request configs you pass to `store.request(...)`.
 
-## Read Path
+| Export | Purpose |
+| --- | --- |
+| `query` | Build a collection request for a PostgREST table or view |
+| `findRecord` | Build a single-record request using PostgREST's singular response mode |
+| `createRecord` | Build a create mutation from a new Warp Drive record |
+| `updateRecord` | Build an update mutation from an editable Warp Drive record |
+
+### Handlers
+
+These are Warp Drive request handlers you add to the store pipeline.
+
+| Export | Purpose |
+| --- | --- |
+| `SupabaseJsonApiHandler` | Transforms raw PostgREST payloads into JSON:API-shaped documents Warp Drive can cache |
+| `SupabaseUpdatesHandler` | Serializes changed attributes for create and update requests |
+
+### Auth
+
+| Export | Purpose |
+| --- | --- |
+| `createSupabaseAuthHandler` | Adds `apikey` and optional `Authorization` headers to outgoing requests |
+| `CreateSupabaseAuthHandlerOptions` | Type for configuring the auth handler |
+
+### Import Paths
+
+Everything is available from the package root:
 
 ```ts
-import { RequestManager } from '@warp-drive/core';
-import Fetch from '@ember-data/request/fetch';
 import {
+  createRecord,
+  createSupabaseAuthHandler,
   findRecord,
   query,
   SupabaseJsonApiHandler,
+  SupabaseUpdatesHandler,
+  updateRecord,
+} from 'warp-drive-supabase';
+```
+
+Subpath imports are also available if you prefer them:
+
+```ts
+import { query, findRecord } from 'warp-drive-supabase/builders';
+import { SupabaseJsonApiHandler, SupabaseUpdatesHandler } from 'warp-drive-supabase/handlers';
+import { createSupabaseAuthHandler } from 'warp-drive-supabase/auth';
+```
+
+## Recommended Store Setup
+
+This is the shape used by the real Ember consumer app in `test-app/`.
+
+```ts
+import { useRecommendedStore } from '@warp-drive/core';
+import { JSONAPICache } from '@warp-drive/json-api';
+import {
+  SupabaseJsonApiHandler,
+  SupabaseUpdatesHandler,
   createSupabaseAuthHandler,
 } from 'warp-drive-supabase';
 
-const requestManager = new RequestManager().use([
-  createSupabaseAuthHandler({
-    apiKey: ENV.supabase.key,
-    getAccessToken: async () => {
-      const session = await supabase.client.auth.getSession();
-      return session.data.session?.access_token ?? null;
-    },
-  }),
-  SupabaseJsonApiHandler,
-  Fetch,
-]);
+import { RESOURCE_SCHEMAS } from './utils/resource-schemas';
 
-store.request(
-  query<Post>('post', {
-    include: ['comments.author', 'author'],
-    order: ['start_date.asc'],
-    filter: {
-      published_at: 'eq.true',
-    },
-  })
-);
-
-store.request(
-  findRecord<User>('user', userId, {
-    include: ['organization.properties', 'role'],
-  })
-);
+const Store = useRecommendedStore({
+  cache: JSONAPICache,
+  handlers: [
+    createSupabaseAuthHandler({
+      apiKey: ENV.supabase.key,
+      getAccessToken: async () => {
+        const session = await supabase.client.auth.getSession();
+        return session.data.session?.access_token ?? null;
+      },
+    }),
+    SupabaseUpdatesHandler,
+    SupabaseJsonApiHandler,
+  ],
+  schemas: RESOURCE_SCHEMAS,
+});
 ```
 
-`query` and `findRecord` generate PostgREST-friendly URLs and `SupabaseJsonApiHandler` transforms the JSON response into a JSON:API-shaped document for Warp Drive. The transformer now respects schema `sourceKey` metadata so Polaris-mode ResourceSchemas can map camelCase app fields onto snake_case PostgREST payloads.
+`SupabaseJsonApiHandler` and `SupabaseUpdatesHandler` are schema-aware. If your Polaris resource schemas use `sourceKey`, the handlers will respect those mappings instead of assuming app field names match database column names.
 
-## Mutation Support
+## Read Example
+
+The builders are meant to be used directly from normal app code.
+
+```gts
+import { on } from '@ember/modifier';
+import { LinkTo } from '@ember/routing';
+import { service } from '@ember/service';
+
+import Component from '@glimmer/component';
+import { cached } from '@glimmer/tracking';
+
+import { Request } from '@warp-drive/ember';
+
+import type Store from 'my-app/services/store';
+import type { PostResource } from 'my-app/utils/resource-schemas';
+
+import { query } from 'warp-drive-supabase';
+
+export default class PostsPage extends Component {
+  @service declare store: Store;
+
+  @cached
+  get postsRequest() {
+    return this.store.request(
+      query<PostResource>('post', {
+        include: ['author', 'comments.author'],
+        order: ['created_at.asc'],
+      }),
+    );
+  }
+
+  <template>
+    <Request @request={{this.postsRequest}}>
+      <:loading>
+        <p>Loading posts…</p>
+      </:loading>
+
+      <:error as |error features|>
+        <p>{{error.response.status}} {{error.response.statusText}}</p>
+        <button type="button" {{on "click" features.retry}}>Retry</button>
+      </:error>
+
+      <:content as |document|>
+        <ul>
+          {{#each document.data as |post|}}
+            <li>
+              <LinkTo @route="posts.post" @model={{post.id}}>
+                {{post.title}}
+              </LinkTo>
+            </li>
+          {{/each}}
+        </ul>
+      </:content>
+    </Request>
+  </template>
+}
+```
+
+For single-record loads:
 
 ```ts
-import { createRecord, updateRecord, SupabaseUpdatesHandler } from 'warp-drive-supabase';
-
-const requestManager = new RequestManager().use([
-  SupabaseUpdatesHandler,
-  SupabaseJsonApiHandler,
-  Fetch,
-]);
-
-const draftPost = store.createRecord('post', {
-  title: 'Hello world',
-});
-
-await store.request(createRecord(draftPost));
-await store.request(updateRecord(post));
+const postRequest = store.request(
+  findRecord<PostResource>('post', postId, {
+    include: ['author', 'comments.author'],
+  }),
+);
 ```
 
-`SupabaseUpdatesHandler` serializes changed attributes into mutation bodies using schema-aware column names, falling back to underscored keys when no `sourceKey` is present.
+## Mutation Example
+
+`createRecord` and `updateRecord` operate on Warp Drive records, not plain objects.
+
+```gts
+import { action } from '@ember/object';
+import { service } from '@ember/service';
+
+import Component from '@glimmer/component';
+
+import { checkout } from '@warp-drive/core/reactive';
+
+import type Store from 'my-app/services/store';
+import type { EditablePostResource, PostResource } from 'my-app/utils/resource-schemas';
+
+import { createRecord, updateRecord } from 'warp-drive-supabase';
+
+export default class PostEditor extends Component {
+  @service declare store: Store;
+
+  @action
+  async createPost() {
+    const draft = this.store.createRecord<EditablePostResource>('post', {
+      title: 'Created from Warp Drive',
+      body: 'Stored through PostgREST',
+      createdAt: '2026-04-15T15:00:00Z',
+    });
+
+    const result = await this.store.request(createRecord<EditablePostResource>(draft));
+    return result.content.data;
+  }
+
+  @action
+  async renamePost(post: PostResource) {
+    const editable = await checkout<EditablePostResource>(post);
+    editable.title = 'Updated title';
+
+    const result = await this.store.request(updateRecord<EditablePostResource>(editable));
+    return result.content.data;
+  }
+}
+```
+
+`SupabaseUpdatesHandler` serializes changed attributes using schema `sourceKey` values when available, and falls back to underscored field names otherwise.
+
+## Type Notes
+
+- For typed builders, use your actual Warp Drive resource type as the generic parameter.
+- `query<T>()` narrows:
+  - `include` to valid include paths from `T`
+  - `fields` to scalar fields on `T`
+  - `order` to scalar fields on `T` plus valid PostgREST order suffixes
+- `findRecord<T>()` returns a single-resource document whose `data` is typed as `T`.
 
 ## Naming Assumptions
 
@@ -98,8 +232,8 @@ Version `0.1.x` is opinionated:
 
 - Warp Drive resource types are underscored and pluralized to derive table paths.
 - Postgres column names are underscored.
-- `belongsTo` foreign keys follow the `<relationship>_id` convention.
-- Included relation payloads are expected under pluralized relation keys returned by PostgREST.
+- foreign keys follow the `<relationship>_id` convention.
+- included relation payloads are expected under pluralized relation keys returned by PostgREST.
 
 ## Status
 
@@ -107,14 +241,15 @@ Implemented today:
 
 - `query`
 - `findRecord`
-- `updateRecord`
 - `createRecord`
+- `updateRecord`
+- Supabase auth handler
 - JSON:API transformation handler
 - mutation payload handler
-- package-safe Supabase auth handler factory
+- schema-aware `sourceKey` support
 - Vitest unit coverage
 - real Ember consumer coverage in `test-app/`
-- MSW-backed Polaris-mode Warp Drive test harness
+- MSW-backed Polaris-mode app tests
 
 Not implemented yet:
 
@@ -128,6 +263,7 @@ Not implemented yet:
 pnpm install
 pnpm typecheck
 pnpm test:library
+pnpm --filter test-app lint
 pnpm test:app
 pnpm test:all
 pnpm build
@@ -145,13 +281,13 @@ Before publishing:
 
 ```sh
 pnpm typecheck
-pnpm test:all
+pnpm test:library
+pnpm --filter test-app lint
+pnpm test:app
 pnpm build
 pnpm smoke:pack
 ```
 
-Then publish with your normal `pnpm publish` flow.
+Then publish with your normal npm or pnpm release flow.
 
-## Example
-
-There is a minimal consumer setup example in [`examples/basic-store-setup.ts`](examples/basic-store-setup.ts).
+There is also a minimal setup example in [`examples/basic-store-setup.ts`](./examples/basic-store-setup.ts).
