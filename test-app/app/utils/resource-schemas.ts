@@ -2,7 +2,7 @@ import { withDefaults } from '@warp-drive/core/reactive';
 import type { PolarisResourceSchema } from '@warp-drive/core/types/schema/fields';
 import { Type } from '@warp-drive/core/types/symbols';
 
-export interface UserResource {
+export interface User {
   readonly $type: 'user';
   [Type]: 'user';
   readonly id: string | null;
@@ -10,36 +10,36 @@ export interface UserResource {
   readonly lastName: string;
 }
 
-export interface CommentResource {
+export interface Comment {
   readonly $type: 'comment';
   [Type]: 'comment';
   readonly id: string | null;
   readonly body: string;
   readonly createdAt: string;
-  readonly author: UserResource | null;
-  readonly post: PostResource | null;
+  readonly author: User | null;
+  readonly post: Post | null;
 }
 
-export interface PostResource {
+export interface Post {
   readonly $type: 'post';
   [Type]: 'post';
   readonly id: string | null;
   readonly title: string;
   readonly body: string;
   readonly createdAt: string;
-  readonly author: UserResource | null;
-  readonly comments: CommentResource[];
+  readonly author: User | null;
+  readonly comments: Comment[];
 }
 
-export interface EditablePostResource {
+export interface EditablePost {
   readonly $type: 'post';
   [Type]: 'post';
   readonly id: string | null;
   title: string;
   body: string;
   createdAt: string;
-  author: UserResource | null;
-  comments: CommentResource[];
+  author: User | null;
+  comments: Comment[];
 }
 
 const UserSchema: PolarisResourceSchema = withDefaults({

@@ -12,10 +12,7 @@ import { Request } from '@warp-drive/ember';
 import PostForm, { type PostFormValues } from 'test-app/components/post-form';
 import type Store from 'test-app/services/store';
 import { normalizeRequestError } from 'test-app/utils/request-errors';
-import type {
-  EditablePostResource,
-  PostResource,
-} from 'test-app/utils/resource-schemas';
+import type { EditablePost, Post } from 'test-app/utils/resource-schemas';
 
 import { findRecord, updateRecord } from 'warp-drive-supabase';
 
@@ -34,17 +31,14 @@ export default class PostsEditTemplate extends Component<Signature> {
   @cached
   get postRequest() {
     return this.store.request(
-      findRecord<PostResource>('post', this.args.model, {
+      findRecord<Post>('post', this.args.model, {
         include: ['author', 'comments.author'],
       }),
     );
   }
 
   @action
-  async updatePost(
-    values: PostFormValues,
-    post?: PostResource | null,
-  ): Promise<void> {
+  async updatePost(values: PostFormValues, post?: Post | null): Promise<void> {
     if (!post) {
       return;
     }
@@ -52,14 +46,14 @@ export default class PostsEditTemplate extends Component<Signature> {
     this.errorMessage = null;
 
     try {
-      const editable = await checkout<EditablePostResource>(post);
+      const editable = await checkout<EditablePost>(post);
 
       editable.title = values.title;
       editable.body = values.body;
       editable.createdAt = values.createdAt;
 
       const result = await this.store.request(
-        updateRecord<EditablePostResource>(editable),
+        updateRecord<EditablePost>(editable),
       );
       const savedPost = result.content.data;
 

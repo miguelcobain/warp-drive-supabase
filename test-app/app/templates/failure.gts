@@ -7,7 +7,7 @@ import { cached } from '@glimmer/tracking';
 import { Request } from '@warp-drive/ember';
 
 import type Store from 'test-app/services/store';
-import type { PostResource } from 'test-app/utils/resource-schemas';
+import type { Post } from 'test-app/utils/resource-schemas';
 
 import { query } from 'warp-drive-supabase';
 
@@ -17,7 +17,7 @@ export default class FailureTemplate extends Component {
   @cached
   get failureRequest() {
     return this.store.request(
-      query<PostResource>('post', {
+      query<Post>('post', {
         filter: { fail: 'read' },
         include: ['author', 'comments.author'],
       }),

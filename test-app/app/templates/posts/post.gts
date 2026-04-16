@@ -8,7 +8,7 @@ import { cached } from '@glimmer/tracking';
 import { Request } from '@warp-drive/ember';
 
 import type Store from 'test-app/services/store';
-import type { PostResource } from 'test-app/utils/resource-schemas';
+import type { Post } from 'test-app/utils/resource-schemas';
 
 import { findRecord } from 'warp-drive-supabase';
 
@@ -24,7 +24,7 @@ export default class PostsPostTemplate extends Component<Signature> {
   @cached
   get postRequest() {
     return this.store.request(
-      findRecord<PostResource>('post', this.args.model, {
+      findRecord<Post>('post', this.args.model, {
         include: ['author', 'comments.author'],
       }),
     );

@@ -118,7 +118,7 @@ import { cached } from '@glimmer/tracking';
 import { Request } from '@warp-drive/ember';
 
 import type Store from 'my-app/services/store';
-import type { PostResource } from 'my-app/utils/resource-schemas';
+import type { Post } from 'my-app/utils/resource-schemas';
 
 import { query } from 'warp-drive-supabase';
 
@@ -128,7 +128,7 @@ export default class PostsPage extends Component {
   @cached
   get postsRequest() {
     return this.store.request(
-      query<PostResource>('post', {
+      query<Post>('post', {
         include: ['author', 'comments.author'],
         order: ['created_at.asc'],
       }),
@@ -166,7 +166,7 @@ For single-record loads:
 
 ```ts
 const postRequest = store.request(
-  findRecord<PostResource>('post', postId, {
+  findRecord<Post>('post', postId, {
     include: ['author', 'comments.author'],
   }),
 );
@@ -185,7 +185,7 @@ import Component from '@glimmer/component';
 import { checkout } from '@warp-drive/core/reactive';
 
 import type Store from 'my-app/services/store';
-import type { EditablePostResource, PostResource } from 'my-app/utils/resource-schemas';
+import type { EditablePost, Post } from 'my-app/utils/resource-schemas';
 
 import { createRecord, updateRecord } from 'warp-drive-supabase';
 
@@ -194,22 +194,22 @@ export default class PostEditor extends Component {
 
   @action
   async createPost() {
-    const draft = this.store.createRecord<EditablePostResource>('post', {
+    const draft = this.store.createRecord<EditablePost>('post', {
       title: 'Created from Warp Drive',
       body: 'Stored through PostgREST',
       createdAt: '2026-04-15T15:00:00Z',
     });
 
-    const result = await this.store.request(createRecord<EditablePostResource>(draft));
+    const result = await this.store.request(createRecord<EditablePost>(draft));
     return result.content.data;
   }
 
   @action
-  async renamePost(post: PostResource) {
-    const editable = await checkout<EditablePostResource>(post);
+  async renamePost(post: Post) {
+    const editable = await checkout<EditablePost>(post);
     editable.title = 'Updated title';
 
-    const result = await this.store.request(updateRecord<EditablePostResource>(editable));
+    const result = await this.store.request(updateRecord<EditablePost>(editable));
     return result.content.data;
   }
 }

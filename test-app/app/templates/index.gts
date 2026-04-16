@@ -8,7 +8,7 @@ import { cached } from '@glimmer/tracking';
 import { Request } from '@warp-drive/ember';
 
 import type Store from 'test-app/services/store';
-import type { PostResource } from 'test-app/utils/resource-schemas';
+import type { Post } from 'test-app/utils/resource-schemas';
 
 import { query } from 'warp-drive-supabase';
 
@@ -18,7 +18,7 @@ export default class IndexTemplate extends Component {
   @cached
   get postsRequest() {
     return this.store.request(
-      query<PostResource>('post', {
+      query<Post>('post', {
         include: ['author', 'comments.author'],
         order: ['created_at.asc'],
       }),

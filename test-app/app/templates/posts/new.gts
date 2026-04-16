@@ -8,10 +8,7 @@ import { tracked } from '@glimmer/tracking';
 import PostForm, { type PostFormValues } from 'test-app/components/post-form';
 import type Store from 'test-app/services/store';
 import { normalizeRequestError } from 'test-app/utils/request-errors';
-import type {
-  EditablePostResource,
-  PostResource,
-} from 'test-app/utils/resource-schemas';
+import type { EditablePost, Post } from 'test-app/utils/resource-schemas';
 
 import { createRecord } from 'warp-drive-supabase';
 
@@ -26,15 +23,13 @@ export default class PostsNewTemplate extends Component {
     this.errorMessage = null;
 
     try {
-      const draft = this.store.createRecord<EditablePostResource>('post', {
+      const draft = this.store.createRecord<EditablePost>('post', {
         body: values.body,
         createdAt: values.createdAt,
         title: values.title,
       });
 
-      const result = await this.store.request(
-        createRecord<PostResource>(draft),
-      );
+      const result = await this.store.request(createRecord<Post>(draft));
       const post = result.content.data;
 
       if (post.id) {

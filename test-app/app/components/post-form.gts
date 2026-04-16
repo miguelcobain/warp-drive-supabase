@@ -4,7 +4,7 @@ import { action } from '@ember/object';
 import Component from '@glimmer/component';
 import { tracked } from '@glimmer/tracking';
 
-import type { PostResource } from 'test-app/utils/resource-schemas';
+import type { Post } from 'test-app/utils/resource-schemas';
 
 export interface PostFormValues {
   title: string;
@@ -16,11 +16,11 @@ interface Signature {
   Args: {
     errorMessage?: string | null;
     heading: string;
-    post?: PostResource | null;
+    post?: Post | null;
     submitLabel: string;
     onSubmit: (
       values: PostFormValues,
-      post?: PostResource | null,
+      post?: Post | null,
     ) => Promise<void> | void;
   };
 }
