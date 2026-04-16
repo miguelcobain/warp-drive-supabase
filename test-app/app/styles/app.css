@@ -1,0 +1,129 @@
+/* Ember supports plain CSS out of the box. More info: https://cli.emberjs.com/release/advanced-use/stylesheets/ */
+body {
+  margin: 0;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  background: #f5f7fb;
+  color: #10223a;
+}
+
+a {
+  color: #0a5bd7;
+  text-decoration: none;
+}
+
+.shell {
+  margin: 0 auto;
+  max-width: 58rem;
+  padding: 2rem 1.5rem 4rem;
+}
+
+.shell-header {
+  align-items: start;
+  display: flex;
+  gap: 1.5rem;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+}
+
+.shell-title {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.shell-subtitle {
+  margin: 0.5rem 0 0;
+  color: #4b5d79;
+  max-width: 42rem;
+}
+
+.shell-nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.page-copy {
+  color: #4b5d79;
+  margin-bottom: 1.5rem;
+}
+
+.card {
+  background: white;
+  border: 1px solid #dce3f1;
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 24px rgb(16 34 58 / 6%);
+  padding: 1rem 1.25rem;
+}
+
+.posts {
+  display: grid;
+  gap: 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.posts-item {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.post-actions,
+.detail-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.post-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.post-form-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.post-form-input {
+  border: 1px solid #c6d2e8;
+  border-radius: 0.5rem;
+  font: inherit;
+  padding: 0.65rem 0.8rem;
+}
+
+.post-form-textarea {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+.post-form-submit {
+  background: #0a5bd7;
+  border: 0;
+  border-radius: 0.5rem;
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  justify-self: start;
+  padding: 0.7rem 1rem;
+}
+
+.form-error {
+  color: #a12222;
+}
+
+@media (width <= 700px) {
+  .shell-header {
+    flex-direction: column;
+  }
+
+  .shell-nav,
+  .post-actions,
+  .detail-actions {
+    flex-wrap: wrap;
+  }
+}

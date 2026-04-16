@@ -7,8 +7,9 @@ function createSchemaService() {
         return new Map([
           ['id', { kind: 'field', name: 'id' }],
           ['title', { kind: 'attribute', name: 'title' }],
-          ['author', { kind: 'belongsTo', name: 'author', type: 'user' }],
-          ['comments', { kind: 'hasMany', name: 'comments', type: 'comment' }],
+          ['createdAt', { kind: 'field', name: 'createdAt', sourceKey: 'created_at' }],
+          ['author', { kind: 'resource', name: 'author', type: 'user' }],
+          ['comments', { kind: 'collection', name: 'comments', type: 'comment' }],
         ]);
       }
 
@@ -36,6 +37,7 @@ describe('serializeToJsonAPI', () => {
       {
         id: 1,
         title: 'Post title',
+        created_at: '2026-04-15T12:00:00Z',
         author_id: 9,
         authors: {
           id: 9,
@@ -61,6 +63,7 @@ describe('serializeToJsonAPI', () => {
       type: 'post',
       attributes: {
         title: 'Post title',
+        created_at: '2026-04-15T12:00:00Z',
       },
       relationships: {
         author: {
@@ -95,5 +98,24 @@ describe('serializeToJsonAPI', () => {
     const schemaService = createSchemaService();
 
     expect(serializeToJsonAPI(schemaService as never, null, 'post')).toEqual({ data: null });
+  });
+
+  it('uses sourceKey metadata for field serialization', () => {
+    const schemaService = createSchemaService();
+    const document = serializeToJsonAPI(
+      schemaService as never,
+      {
+        id: 1,
+        title: 'Post title',
+        created_at: '2026-04-15T12:00:00Z',
+      },
+      'post'
+    );
+
+    expect(document.data).toMatchObject({
+      attributes: {
+        created_at: '2026-04-15T12:00:00Z',
+      },
+    });
   });
 });

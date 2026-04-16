@@ -13,6 +13,10 @@ export const SupabaseJsonApiHandler: Handler = {
 
     const result = await next(context.request);
 
+    if ('response' in result && result.response && 'ok' in result.response && result.response.ok === false) {
+      return result;
+    }
+
     // get JSON body (Fetch usually gives you parsed JSON in result.content; fall back to response.json())
     const raw =
       result?.content ??

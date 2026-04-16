@@ -1,12 +1,10 @@
-import WarpDriveCore from '@warp-drive/core';
+import { recordIdentifierFor } from '@warp-drive/core';
 import type { ResourceKey } from '@warp-drive/core/types/identifier';
 import type { TypedRecordInstance } from '@warp-drive/core/types/record';
 import type { ConstrainedRequestOptions, CreateRequestOptions as BaseCreateRequestOptions } from '@warp-drive/core/types/request';
 import type { ReactiveDataDocument } from '@warp-drive/core/reactive';
 import { buildBaseURL, buildQueryParams, type QueryUrlOptions, type UrlOptions } from '../utils/url';
 import { pluralizeType, underscore } from '../utils/string';
-
-const { recordIdentifierFor } = WarpDriveCore as typeof import('@warp-drive/core');
 
 type CreateRequestOptions<RT = unknown, T = unknown> = BaseCreateRequestOptions<RT, T> & {
   options?: Record<string, unknown>;

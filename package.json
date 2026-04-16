@@ -42,12 +42,17 @@
   },
   "scripts": {
     "build": "tsup",
+    "ci:verify": "pnpm typecheck && pnpm test:library && pnpm test:app && pnpm build && pnpm smoke:pack",
     "clean": "rimraf dist .tmp",
+    "test:app": "pnpm --filter test-app test",
+    "test:library": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run",
+    "test": "pnpm test:library",
+    "test:all": "pnpm test:library && pnpm test:app",
     "test:watch": "vitest",
     "pack:check": "pnpm build && pnpm pack",
-    "smoke:pack": "node ./scripts/smoke-consumer.mjs"
+    "smoke:pack": "pnpm build && node ./scripts/smoke-consumer.mjs",
+    "prepack": "pnpm build"
   },
   "peerDependencies": {
     "@warp-drive/core": ">=5.7.0 <6"

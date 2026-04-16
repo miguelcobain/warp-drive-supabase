@@ -69,7 +69,7 @@ store.request(
 );
 ```
 
-`query` and `findRecord` generate PostgREST-friendly URLs and `SupabaseJsonApiHandler` transforms the JSON response into a JSON:API-shaped document for Warp Drive.
+`query` and `findRecord` generate PostgREST-friendly URLs and `SupabaseJsonApiHandler` transforms the JSON response into a JSON:API-shaped document for Warp Drive. The transformer now respects schema `sourceKey` metadata so Polaris-mode ResourceSchemas can map camelCase app fields onto snake_case PostgREST payloads.
 
 ## Mutation Support
 
@@ -90,7 +90,7 @@ await store.request(createRecord(draftPost));
 await store.request(updateRecord(post));
 ```
 
-`SupabaseUpdatesHandler` serializes changed attributes into mutation bodies using underscored column names.
+`SupabaseUpdatesHandler` serializes changed attributes into mutation bodies using schema-aware column names, falling back to underscored keys when no `sourceKey` is present.
 
 ## Naming Assumptions
 
@@ -112,25 +112,30 @@ Implemented today:
 - JSON:API transformation handler
 - mutation payload handler
 - package-safe Supabase auth handler factory
-- unit and integration coverage
+- Vitest unit coverage
+- real Ember consumer coverage in `test-app/`
+- MSW-backed Polaris-mode Warp Drive test harness
 
 Not implemented yet:
 
 - pagination helpers
 - delete builders
 - schema-name customization hooks
-- live Supabase integration tests
 
 ## Development
 
 ```sh
 pnpm install
 pnpm typecheck
-pnpm test
+pnpm test:library
+pnpm test:app
+pnpm test:all
 pnpm build
-pnpm pack
 pnpm smoke:pack
+pnpm ci:verify
 ```
+
+`test-app/` is a private Ember app generated from the latest app blueprint and wired in Polaris mode against the workspace source of `warp-drive-supabase`.
 
 `pnpm smoke:pack` creates a tarball, installs it into a temporary consumer, and verifies the published exports can be imported.
 
@@ -140,9 +145,8 @@ Before publishing:
 
 ```sh
 pnpm typecheck
-pnpm test
+pnpm test:all
 pnpm build
-pnpm pack
 pnpm smoke:pack
 ```
 

@@ -3,9 +3,7 @@ import { createRecord } from '../src/builders/create-record';
 const mockRecordIdentifierFor = vi.hoisted(() => vi.fn());
 
 vi.mock('@warp-drive/core', () => ({
-  default: {
-    recordIdentifierFor: mockRecordIdentifierFor,
-  },
+  recordIdentifierFor: mockRecordIdentifierFor,
 }));
 
 describe('createRecord builder', () => {

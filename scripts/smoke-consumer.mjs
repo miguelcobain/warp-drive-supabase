@@ -1,23 +1,29 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 
 const repoRoot = resolve(new URL('..', import.meta.url).pathname);
-const tempRoot = resolve(repoRoot, '.tmp');
-const consumerDir = resolve(tempRoot, 'smoke-consumer');
+const packRoot = resolve(repoRoot, '.tmp');
+const tempRoot = mkdtempSync(resolve(tmpdir(), 'warp-drive-supabase-smoke-'));
+const consumerDir = resolve(tempRoot, 'consumer');
+const rootPackage = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'));
+const testAppPackage = JSON.parse(readFileSync(resolve(repoRoot, 'test-app/package.json'), 'utf8'));
 
-rmSync(tempRoot, { recursive: true, force: true });
 mkdirSync(consumerDir, { recursive: true });
+mkdirSync(packRoot, { recursive: true });
 
 execFileSync('pnpm', ['pack', '--pack-destination', '.tmp'], {
   cwd: repoRoot,
   stdio: 'inherit',
 });
 
-const tarballName = readdirSync(tempRoot).find((entry) => entry.endsWith('.tgz'));
+const tarballName = readdirSync(packRoot).find((entry) => entry.endsWith('.tgz'));
 if (!tarballName) {
   throw new Error('Expected pnpm pack to create a tarball in .tmp.');
 }
+
+const tarballPath = resolve(packRoot, tarballName);
 
 writeFileSync(
   resolve(consumerDir, 'package.json'),
@@ -27,8 +33,11 @@ writeFileSync(
       private: true,
       type: 'module',
       dependencies: {
-        '@warp-drive/core': 'link:../../node_modules/@warp-drive/core',
-        'warp-drive-supabase': `file:../${tarballName}`,
+        '@warp-drive/core': testAppPackage.devDependencies['@warp-drive/core'],
+        'warp-drive-supabase': `file:${tarballPath}`,
+      },
+      devDependencies: {
+        typescript: rootPackage.devDependencies.typescript,
       },
     },
     null,
@@ -80,10 +89,14 @@ writeFileSync(
 
 execFileSync('pnpm', ['install'], {
   cwd: consumerDir,
+  env: {
+    ...process.env,
+    CI: 'true',
+  },
   stdio: 'inherit',
 });
 
-execFileSync('node', [resolve(repoRoot, 'node_modules/typescript/bin/tsc'), '-p', 'tsconfig.json'], {
+execFileSync('pnpm', ['exec', 'tsc', '-p', 'tsconfig.json'], {
   cwd: consumerDir,
   stdio: 'inherit',
 });

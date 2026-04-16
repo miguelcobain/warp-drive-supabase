@@ -56,4 +56,28 @@ describe('SupabaseJsonApiHandler', () => {
 
     expect(result).toBe(response);
   });
+
+  it('passes through error responses without transforming them', async () => {
+    const response = {
+      response: new Response(JSON.stringify({ message: 'boom' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+      content: { message: 'boom' },
+    };
+    const next = vi.fn(async () => response);
+
+    const result = await SupabaseJsonApiHandler.request(
+      {
+        request: {
+          headers: new Headers(),
+          options: { type: 'post' },
+          store: { schema: createSchemaService() },
+        },
+      } as never,
+      next as never
+    );
+
+    expect(result).toBe(response);
+  });
 });

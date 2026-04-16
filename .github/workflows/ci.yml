@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  library:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test:library
+
+  consumer:
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.allow_failure }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: min
+            warp_drive_version: 5.7.0
+            allow_failure: false
+          - name: latest
+            warp_drive_version: 5.8.1
+            allow_failure: false
+          - name: canary
+            warp_drive_version: 5.9.0-alpha.12
+            allow_failure: true
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - name: Pin Warp Drive consumer version
+        run: >
+          pnpm --filter test-app add -D
+          @warp-drive/core@${{ matrix.warp_drive_version }}
+          @warp-drive/ember@${{ matrix.warp_drive_version }}
+          @warp-drive/json-api@${{ matrix.warp_drive_version }}
+          @warp-drive/legacy@${{ matrix.warp_drive_version }}
+          @warp-drive/utilities@${{ matrix.warp_drive_version }}
+      - run: pnpm --filter test-app lint
+      - run: pnpm test:app
+
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm smoke:pack

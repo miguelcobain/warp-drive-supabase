@@ -2,7 +2,7 @@ import type { Value } from '@warp-drive/core/types/json/raw';
 import type { ResourceKey } from '@warp-drive/core/types/identifier';
 import type { Handler, NextFn } from '@warp-drive/core/request';
 import type { StoreRequestContext } from '@warp-drive/core';
-import { underscore } from '../utils/string';
+import { getFieldSourceKey } from './utils/schema-fields';
 
 const MUTATION_OPS = new Set(['createRecord', 'updateRecord']);
 
@@ -16,13 +16,15 @@ export const SupabaseUpdatesHandler: Handler = {
     }
 
     const attributeDiffMap = store.cache.changedAttrs(data['record'] as ResourceKey);
+    const schemaFields = store.schema?.fields?.(data['record'] as ResourceKey);
     // const relationshipDiffMap = store.cache.changedRelationships(data['record']);
     // const patchPayload = serializePatch(store.cache, data['record']);
 
     const payload: Record<string, Value> = {};
 
     for (const [key, value] of Object.entries(attributeDiffMap)) {
-      const attr = underscore(key);
+      const schemaField = schemaFields?.get?.(key);
+      const attr = schemaField ? getFieldSourceKey(schemaField, key) : key.replace(/[A-Z]/g, (match) => `_${match.toLowerCase()}`);
       const [, newValue] = value;
       payload[attr] = newValue;
     }

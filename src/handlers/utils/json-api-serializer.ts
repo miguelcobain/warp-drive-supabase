@@ -1,5 +1,13 @@
 import type { SchemaService } from '@warp-drive/core/types';
-import { pluralizeType, underscore } from '../../utils/string';
+import {
+  getFieldName,
+  getFieldSourceKey,
+  getRelationshipIdKey,
+  getRelationshipIncludeKey,
+  isAttributeField,
+  isToManyRelationshipField,
+  isToOneRelationshipField,
+} from './schema-fields';
 
 interface JSONAPIRelationship {
   data: { id: string; type: string } | null,
@@ -48,20 +56,23 @@ export function serializeToJsonAPI(
     for (const [key, field] of schema.entries()) {
       if (key === 'id') continue;
 
-      if (field.kind === 'attribute' || field.kind === 'field') {
-        const attributeKey = underscore(key);
+      if (isAttributeField(field)) {
+        const attributeKey = getFieldSourceKey(field, key);
         if (attributeKey in record) {
-          attributes[key] = record[attributeKey];
+          attributes[attributeKey] = record[attributeKey];
         }
-      } else if (field.kind === 'belongsTo') {
-        const relationshipName = field.name ?? key;
-        const relId = record[`${underscore(relationshipName)}_id`];
+      } else if (isToOneRelationshipField(field)) {
+        const relationshipName = getFieldName(field, key);
+        const relId = record[getRelationshipIdKey(field, key)];
         const relType = field.type;
+        if (typeof relType !== 'string') {
+          continue;
+        }
         relationships[relationshipName] = {
           data: relId ? { id: String(relId), type: relType } : null,
         };
 
-        const includedRel = record[pluralizeType(underscore(relationshipName))];
+        const includedRel = record[getRelationshipIncludeKey(field, key)];
         if (includedRel?.id) {
           const includedMapKey = `${relType}-${includedRel.id}`;
           if (!includedMap.has(includedMapKey)) {
@@ -73,12 +84,15 @@ export function serializeToJsonAPI(
             includedMap.set(includedMapKey, serialized);
           }
         }
-      } else if (field.kind === 'hasMany') {
-        const relationshipName = field.name ?? key;
-        const rels = Array.isArray(record[pluralizeType(underscore(relationshipName))])
-          ? record[pluralizeType(underscore(relationshipName))]
+      } else if (isToManyRelationshipField(field)) {
+        const relationshipName = getFieldName(field, key);
+        const rels = Array.isArray(record[getRelationshipIncludeKey(field, key)])
+          ? record[getRelationshipIncludeKey(field, key)]
           : null;
         const relType = field.type;
+        if (typeof relType !== 'string') {
+          continue;
+        }
 
         if (!rels) {
           continue;

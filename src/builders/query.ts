@@ -9,18 +9,46 @@ import { buildBaseURL, buildQueryParams, type QueryUrlOptions } from '../utils/u
 type Direction = 'asc' | 'desc';
 type Nulls = 'nullsfirst' | 'nullslast';
 
-// Accept any string BEFORE the dot, but only certain suffixes
-type OrderString =
+type OrderSuffix =
+  | `${Direction}`
+  | `${Nulls}`
+  | `${Direction}.${Nulls}`;
+
+type UntypedOrderString =
   | `${string}.${Direction}`
   | `${string}.${Nulls}`
   | `${string}.${Direction}.${Nulls}`;
 
 type Filters = Record<string, string | Array<string>>;
 
+type ScalarFieldValue = string | number | boolean | bigint | null | undefined;
+
+type SnakeCase<S extends string> =
+  S extends `${infer Head}${infer Tail}`
+    ? Tail extends Uncapitalize<Tail>
+      ? `${Lowercase<Head>}${SnakeCase<Tail>}`
+      : `${Lowercase<Head>}_${SnakeCase<Tail>}`
+    : S;
+
+type QueryableFieldKey<T extends TypedRecordInstance> = Exclude<
+  {
+    [K in Extract<keyof T, string>]:
+      NonNullable<T[K]> extends ScalarFieldValue ? K : never;
+  }[Extract<keyof T, string>],
+  '$type'
+>;
+
+type QueryableFieldName<T extends TypedRecordInstance> =
+  | QueryableFieldKey<T>
+  | SnakeCase<QueryableFieldKey<T>>;
+
+type TypedOrderString<T extends TypedRecordInstance> =
+  `${QueryableFieldName<T>}.${OrderSuffix}`;
+
 interface QueryOptions<T = unknown> {
   include?: T extends TypedRecordInstance ? Includes<T> | Includes<T>[] : string | string[];
-  order?: OrderString[]; // TODO: can we make this more type-safe to enforce the given schema's fields?
-  fields?: string[]; // TODO: can we make this more type-safe to enforce the given schema's fields?
+  order?: T extends TypedRecordInstance ? TypedOrderString<T>[] : UntypedOrderString[];
+  fields?: T extends TypedRecordInstance ? QueryableFieldName<T>[] : string[];
   filter?: Filters;
 }
 
