@@ -6,9 +6,9 @@ import Component from '@glimmer/component';
 import { tracked } from '@glimmer/tracking';
 
 import PostForm, { type PostFormValues } from 'test-app/components/post-form';
+import type { EditablePost, Post } from 'test-app/schemas';
 import type Store from 'test-app/services/store';
 import { normalizeRequestError } from 'test-app/utils/request-errors';
-import type { EditablePost, Post } from 'test-app/utils/resource-schemas';
 
 import { createRecord } from 'warp-drive-supabase';
 

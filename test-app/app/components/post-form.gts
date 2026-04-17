@@ -4,7 +4,7 @@ import { action } from '@ember/object';
 import Component from '@glimmer/component';
 import { tracked } from '@glimmer/tracking';
 
-import type { Post } from 'test-app/utils/resource-schemas';
+import type { Post } from 'test-app/schemas';
 
 export interface PostFormValues {
   title: string;

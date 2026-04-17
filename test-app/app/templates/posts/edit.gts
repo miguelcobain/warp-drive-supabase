@@ -10,9 +10,9 @@ import { checkout } from '@warp-drive/core/reactive';
 import { Request } from '@warp-drive/ember';
 
 import PostForm, { type PostFormValues } from 'test-app/components/post-form';
+import type { EditablePost, Post } from 'test-app/schemas';
 import type Store from 'test-app/services/store';
 import { normalizeRequestError } from 'test-app/utils/request-errors';
-import type { EditablePost, Post } from 'test-app/utils/resource-schemas';
 
 import { findRecord, updateRecord } from 'warp-drive-supabase';
 

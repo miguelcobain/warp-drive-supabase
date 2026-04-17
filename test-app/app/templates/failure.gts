@@ -6,8 +6,8 @@ import { cached } from '@glimmer/tracking';
 
 import { Request } from '@warp-drive/ember';
 
+import type { Post } from 'test-app/schemas';
 import type Store from 'test-app/services/store';
-import type { Post } from 'test-app/utils/resource-schemas';
 
 import { query } from 'warp-drive-supabase';
 

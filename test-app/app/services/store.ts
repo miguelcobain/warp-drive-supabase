@@ -1,7 +1,7 @@
 import { useRecommendedStore } from '@warp-drive/core';
 import { JSONAPICache } from '@warp-drive/json-api';
 
-import { RESOURCE_SCHEMAS } from 'test-app/utils/resource-schemas';
+import { RESOURCE_SCHEMAS } from 'test-app/schemas';
 
 import {
   SupabaseJsonApiHandler,
