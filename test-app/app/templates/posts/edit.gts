@@ -1,3 +1,4 @@
+import { fn } from '@ember/helper';
 import { on } from '@ember/modifier';
 import { action } from '@ember/object';
 import type RouterService from '@ember/routing/router-service';
@@ -14,7 +15,7 @@ import type { EditablePost, Post } from 'test-app/schemas';
 import type Store from 'test-app/services/store';
 import { normalizeRequestError } from 'test-app/utils/request-errors';
 
-import { findRecord, updateRecord } from 'warp-drive-supabase';
+import { deleteRecord, findRecord, updateRecord } from 'warp-drive-supabase';
 
 interface Signature {
   Args: {
@@ -68,6 +69,25 @@ export default class PostsEditTemplate extends Component<Signature> {
     }
   }
 
+  @action
+  async removePost(post?: Post | null): Promise<void> {
+    if (!post) {
+      return;
+    }
+
+    this.errorMessage = null;
+
+    try {
+      await this.store.request(deleteRecord(post));
+      this.router.transitionTo('index');
+    } catch (error) {
+      this.errorMessage = await normalizeRequestError(
+        error,
+        'Failed to delete post',
+      );
+    }
+  }
+
   <template>
     <section data-test-edit-post-route>
       <Request @request={{this.postRequest}}>
@@ -90,13 +110,24 @@ export default class PostsEditTemplate extends Component<Signature> {
         </:error>
 
         <:content as |document|>
-          <PostForm
-            @errorMessage={{this.errorMessage}}
-            @heading="Edit Post"
-            @onSubmit={{this.updatePost}}
-            @post={{document.data}}
-            @submitLabel="Save Post"
-          />
+          <div class="edit-post-actions">
+            <PostForm
+              @errorMessage={{this.errorMessage}}
+              @heading="Edit Post"
+              @onSubmit={{this.updatePost}}
+              @post={{document.data}}
+              @submitLabel="Save Post"
+            />
+
+            <button
+              class="post-form-delete"
+              data-test-post-delete
+              type="button"
+              {{on "click" (fn this.removePost document.data)}}
+            >
+              Delete Post
+            </button>
+          </div>
         </:content>
       </Request>
     </section>

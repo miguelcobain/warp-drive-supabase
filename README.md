@@ -28,6 +28,7 @@ These create request configs you pass to `store.request(...)`.
 | `findRecord` | Build a single-record request using PostgREST's singular response mode |
 | `createRecord` | Build a create mutation from a new Warp Drive record |
 | `updateRecord` | Build an update mutation from an editable Warp Drive record |
+| `deleteRecord` | Build a delete mutation for a persisted Warp Drive record |
 
 ### Handlers
 
@@ -55,6 +56,7 @@ import {
   query,
   createRecord,
   updateRecord,
+  deleteRecord,
   createSupabaseAuthHandler,
   SupabaseJsonApiHandler,
   SupabaseUpdatesHandler,
@@ -174,7 +176,7 @@ const postRequest = store.request(
 
 ## Mutation Example
 
-`createRecord` and `updateRecord` operate on Warp Drive records, not plain objects.
+`createRecord`, `updateRecord`, and `deleteRecord` operate on Warp Drive records, not plain objects.
 
 ```gts
 import { action } from '@ember/object';
@@ -187,7 +189,7 @@ import { checkout } from '@warp-drive/core/reactive';
 import type Store from 'my-app/services/store';
 import type { EditablePost, Post } from 'my-app/utils/resource-schemas';
 
-import { createRecord, updateRecord } from 'warp-drive-supabase';
+import { createRecord, deleteRecord, updateRecord } from 'warp-drive-supabase';
 
 export default class PostEditor extends Component {
   @service declare store: Store;
@@ -211,6 +213,11 @@ export default class PostEditor extends Component {
 
     const result = await this.store.request(updateRecord<EditablePost>(editable));
     return result.content.data;
+  }
+
+  @action
+  async removePost(post: Post) {
+    await this.store.request(deleteRecord(post));
   }
 }
 ```
@@ -243,6 +250,7 @@ Implemented today:
 - `findRecord`
 - `createRecord`
 - `updateRecord`
+- `deleteRecord`
 - Supabase auth handler
 - JSON:API transformation handler
 - mutation payload handler
@@ -254,7 +262,6 @@ Implemented today:
 Not implemented yet:
 
 - pagination helpers
-- delete builders
 - schema-name customization hooks
 
 ## Development

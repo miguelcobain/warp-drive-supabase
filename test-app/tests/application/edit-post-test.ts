@@ -18,4 +18,13 @@ module('Application | edit post', function (hooks) {
       .dom('[data-test-post-detail-title]')
       .hasText('Updated from route form');
   });
+
+  test('it deletes a post through the real deleteRecord builder', async function (assert) {
+    await visit('/posts/1/edit');
+
+    await click('[data-test-post-delete]');
+
+    assert.strictEqual(currentURL(), '/');
+    assert.dom('[data-test-post-row]').doesNotExist();
+  });
 });

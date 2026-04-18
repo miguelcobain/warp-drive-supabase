@@ -288,6 +288,49 @@ function createHandlers() {
 
       return HttpResponse.json(updatedPost);
     }),
+
+    http.delete('/posts', ({ request }) => {
+      const authFailure = validateAuth(request);
+      if (authFailure) {
+        return authFailure;
+      }
+
+      const url = new URL(request.url);
+
+      if (url.searchParams.get('id') !== 'eq.1') {
+        return HttpResponse.json(
+          { message: 'Expected deleteRecord to target post 1' },
+          { status: 400 },
+        );
+      }
+
+      if (url.searchParams.has('select')) {
+        return HttpResponse.json(
+          { message: 'deleteRecord should not request select=*' },
+          { status: 400 },
+        );
+      }
+
+      if (request.headers.get('Prefer') === 'return=representation') {
+        return HttpResponse.json(
+          { message: 'deleteRecord should not request return=representation' },
+          { status: 400 },
+        );
+      }
+
+      if (
+        request.headers.get('Accept') === 'application/vnd.pgrst.object+json'
+      ) {
+        return HttpResponse.json(
+          { message: 'deleteRecord should not request singular object Accept' },
+          { status: 400 },
+        );
+      }
+
+      posts = posts.filter((entry) => entry.id !== '1');
+
+      return new HttpResponse(null, { status: 204 });
+    }),
   ];
 }
 
