@@ -1,5 +1,3 @@
-import type { PolarisResourceSchema } from '@warp-drive/core/types/schema/fields';
-
 import { CommentSchema } from './comment';
 import { PostSchema } from './post';
 import { UserSchema } from './user';
@@ -11,7 +9,7 @@ export { PostSchema } from './post';
 export type { User } from './user';
 export { UserSchema } from './user';
 
-export const RESOURCE_SCHEMAS: PolarisResourceSchema[] = [
+export const RESOURCE_SCHEMAS = [
   UserSchema,
   CommentSchema,
   PostSchema,
