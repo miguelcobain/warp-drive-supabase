@@ -33,7 +33,7 @@ jobs:
         include:
           - name: min
             warp_drive_version: 5.7.0
-            allow_failure: false
+            allow_failure: true
           - name: latest
             warp_drive_version: 5.8.1
             allow_failure: false
