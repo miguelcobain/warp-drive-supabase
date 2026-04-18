@@ -9,8 +9,4 @@ export { PostSchema } from './post';
 export type { User } from './user';
 export { UserSchema } from './user';
 
-export const RESOURCE_SCHEMAS = [
-  UserSchema,
-  CommentSchema,
-  PostSchema,
-];
+export const RESOURCE_SCHEMAS = [UserSchema, CommentSchema, PostSchema];
