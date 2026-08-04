@@ -18,5 +18,5 @@ export default defineConfig({
   sourcemap: true,
   target: 'es2022',
   splitting: false,
-  external: ['@warp-drive/core'],
+  external: ['@warp-drive/core', '@warp-drive/utilities'],
 });

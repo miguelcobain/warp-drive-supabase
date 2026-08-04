@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@rollup/plugin-babel':
+        specifier: ^6.1.0
+        version: 6.1.0(@babel/core@7.29.0)(rollup@4.60.0)
       '@types/node':
         specifier: ^24.5.2
         version: 24.12.0
@@ -17,6 +20,9 @@ importers:
       '@warp-drive/core':
         specifier: ^5.7.0
         version: 5.8.1(@babel/core@7.29.0)(@glint/template@1.7.7)
+      '@warp-drive/utilities':
+        specifier: ^5.7.0
+        version: 5.8.1(@babel/core@7.29.0)(@glint/template@1.7.7)(@warp-drive/core@5.8.1(@babel/core@7.29.0)(@glint/template@1.7.7))
       pluralize:
         specifier: ^8.0.0
         version: 8.0.0

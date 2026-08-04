@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 
@@ -18,12 +18,11 @@ execFileSync('pnpm', ['pack', '--pack-destination', '.tmp'], {
   stdio: 'inherit',
 });
 
-const tarballName = readdirSync(packRoot).find((entry) => entry.endsWith('.tgz'));
-if (!tarballName) {
-  throw new Error('Expected pnpm pack to create a tarball in .tmp.');
-}
-
+const tarballName = `${rootPackage.name}-${rootPackage.version}.tgz`;
 const tarballPath = resolve(packRoot, tarballName);
+if (!existsSync(tarballPath)) {
+  throw new Error(`Expected pnpm pack to create ${tarballName} in .tmp.`);
+}
 
 writeFileSync(
   resolve(consumerDir, 'package.json'),
@@ -34,6 +33,7 @@ writeFileSync(
       type: 'module',
       dependencies: {
         '@warp-drive/core': testAppPackage.devDependencies['@warp-drive/core'],
+        '@warp-drive/utilities': testAppPackage.devDependencies['@warp-drive/utilities'],
         'warp-drive-supabase': `file:${tarballPath}`,
       },
       devDependencies: {
@@ -48,7 +48,10 @@ writeFileSync(
 writeFileSync(
   resolve(consumerDir, 'index.ts'),
   [
+    "import { setBuildURLConfig } from '@warp-drive/utilities';",
     "import { query, findRecord, createRecord, updateRecord, SupabaseJsonApiHandler, SupabaseUpdatesHandler, createSupabaseAuthHandler } from 'warp-drive-supabase';",
+    '',
+    "setBuildURLConfig({ host: 'https://example.supabase.co', namespace: 'rest/v1' });",
     '',
     "const queryRequest = query('post');",
     "const recordRequest = findRecord('user', '1');",

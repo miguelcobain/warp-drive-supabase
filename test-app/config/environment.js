@@ -6,6 +6,9 @@ module.exports = function (environment) {
     environment,
     rootURL: '/',
     locationType: 'history',
+    supabase: {
+      url: 'https://example.supabase.co',
+    },
     EmberENV: {
       EXTEND_PROTOTYPES: false,
       FEATURES: {

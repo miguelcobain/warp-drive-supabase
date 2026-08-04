@@ -31,4 +31,7 @@ export default config as {
   locationType: string;
   rootURL: string;
   APP: Record<string, unknown>;
+  supabase: {
+    url: string;
+  };
 } & Record<string, unknown>;

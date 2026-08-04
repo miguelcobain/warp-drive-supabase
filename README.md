@@ -7,7 +7,7 @@ This package lets a Warp Drive store talk to PostgREST and Supabase with a small
 ## Install
 
 ```sh
-pnpm add warp-drive-supabase @warp-drive/core
+pnpm add warp-drive-supabase @warp-drive/core @warp-drive/utilities
 ```
 
 If you are using Ember, you will usually also want:
@@ -78,6 +78,7 @@ This is the shape used by the real Ember consumer app in `test-app/`.
 ```ts
 import { useRecommendedStore } from '@warp-drive/core';
 import { JSONAPICache } from '@warp-drive/json-api';
+import { setBuildURLConfig } from '@warp-drive/utilities';
 import {
   SupabaseJsonApiHandler,
   SupabaseUpdatesHandler,
@@ -85,6 +86,11 @@ import {
 } from 'warp-drive-supabase';
 
 import { RESOURCE_SCHEMAS } from './utils/resource-schemas';
+
+setBuildURLConfig({
+  host: ENV.supabase.url.replace(/\/+$/, ''),
+  namespace: 'rest/v1',
+});
 
 const Store = useRecommendedStore({
   cache: JSONAPICache,
@@ -102,6 +108,8 @@ const Store = useRecommendedStore({
   schemas: RESOURCE_SCHEMAS,
 });
 ```
+
+Call `setBuildURLConfig` once during application setup, before invoking any of the request builders. Every builder will then target the configured Supabase REST endpoint by default; `host`, `namespace`, and `resourcePath` can still be overridden in an individual builder's options.
 
 `SupabaseJsonApiHandler` and `SupabaseUpdatesHandler` are schema-aware. If your Polaris resource schemas use `sourceKey`, the handlers will respect those mappings instead of assuming app field names match database column names.
 

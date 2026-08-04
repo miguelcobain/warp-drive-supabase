@@ -9,7 +9,8 @@ import type { SingleResourceDataDocument } from '@warp-drive/core/types/spec/doc
 
 import { serializePostgrestSelect } from './utils/query-params';
 import { pluralizeType, underscore } from '../utils/string';
-import { buildBaseURL, buildQueryParams, type QueryUrlOptions } from '../utils/url';
+import { buildQueryParams } from '../utils/url';
+import { buildPostgrestBaseURL } from './utils/url-options';
 
 export type FindRecordResultDocument<T> = Omit<SingleResourceDataDocument<T>, 'data'> & { data: T };
 
@@ -43,13 +44,11 @@ export function findRecord<T>(
     typeof arg1 === 'string' ? { type: arg1, id: arg2 as string } : arg1;
   const options = ((typeof arg1 === 'string' ? arg3 : arg2) || {}) as FindRecordOptions;
 
-  const urlOptions: QueryUrlOptions = {
-    identifier,
-    op: 'query',
-    resourcePath: pluralizeType(underscore(identifier.type)),
-  };
-
-  const url = buildBaseURL(urlOptions);
+  const url = buildPostgrestBaseURL(
+    identifier.type,
+    pluralizeType(underscore(identifier.type)),
+    options
+  );
 
   const headers = new Headers();
   // Set the content type to application/vnd.pgrst.object+json to request a single object

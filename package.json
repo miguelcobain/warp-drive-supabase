@@ -55,12 +55,15 @@
     "prepack": "pnpm build"
   },
   "peerDependencies": {
-    "@warp-drive/core": ">=5.7.0 <6"
+    "@warp-drive/core": ">=5.7.0 <6",
+    "@warp-drive/utilities": ">=5.7.0 <6"
   },
   "devDependencies": {
+    "@rollup/plugin-babel": "^6.1.0",
     "@types/node": "^24.5.2",
     "@types/pluralize": "^0.0.33",
     "@warp-drive/core": "^5.7.0",
+    "@warp-drive/utilities": "^5.7.0",
     "pluralize": "^8.0.0",
     "rimraf": "^6.0.1",
     "tsup": "^8.5.0",

@@ -1,10 +1,11 @@
 import type { TypedRecordInstance, TypeFromInstance, Includes } from '@warp-drive/core/types/record';
-import type { QueryRequestOptions as BaseQueryRequestOptions } from '@warp-drive/core/types/request';
+import type { ConstrainedRequestOptions, QueryRequestOptions as BaseQueryRequestOptions } from '@warp-drive/core/types/request';
 import type { CollectionResourceDataDocument } from '@warp-drive/core/types/spec/document';
 
 import { serializePostgrestSelect, serializePostgrestOrder } from './utils/query-params';
 import { pluralizeType, underscore } from '../utils/string';
-import { buildBaseURL, buildQueryParams, type QueryUrlOptions } from '../utils/url';
+import { buildQueryParams } from '../utils/url';
+import { buildPostgrestBaseURL } from './utils/url-options';
 
 type Direction = 'asc' | 'desc';
 type Nulls = 'nullsfirst' | 'nullslast';
@@ -45,7 +46,7 @@ type QueryableFieldName<T extends TypedRecordInstance> =
 type TypedOrderString<T extends TypedRecordInstance> =
   `${QueryableFieldName<T>}.${OrderSuffix}`;
 
-interface QueryOptions<T = unknown> {
+export interface QueryOptions<T = unknown> extends ConstrainedRequestOptions {
   include?: T extends TypedRecordInstance ? Includes<T> | Includes<T>[] : string | string[];
   order?: T extends TypedRecordInstance ? TypedOrderString<T>[] : UntypedOrderString[];
   fields?: T extends TypedRecordInstance ? QueryableFieldName<T>[] : string[];
@@ -70,16 +71,10 @@ export function query(
   type: string,
   options: QueryOptions = {}
 ): QueryRequestOptions {
-  const urlOptions: QueryUrlOptions = {
-    identifier: { type },
-    op: 'query',
-    resourcePath: pluralizeType(underscore(type)),
-  };
-
   const headers = new Headers();
   headers.append('Accept', 'application/json;charset=utf-8');
 
-  const url = buildBaseURL(urlOptions);
+  const url = buildPostgrestBaseURL(type, pluralizeType(underscore(type)), options);
 
   const queryParams = new URLSearchParams();
 

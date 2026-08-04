@@ -1,5 +1,6 @@
 import { RequestManager } from '@warp-drive/core';
 import Fetch from '@ember-data/request/fetch';
+import { setBuildURLConfig } from '@warp-drive/utilities';
 import {
   createRecord,
   createSupabaseAuthHandler,
@@ -9,6 +10,11 @@ import {
   SupabaseUpdatesHandler,
   updateRecord,
 } from 'warp-drive-supabase';
+
+setBuildURLConfig({
+  host: ENV.supabase.url.replace(/\/+$/, ''),
+  namespace: 'rest/v1',
+});
 
 const requestManager = new RequestManager().use([
   createSupabaseAuthHandler({

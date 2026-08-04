@@ -1,3 +1,5 @@
+import ENV from 'test-app/config/environment';
+
 import { HttpResponse, delay, http } from 'msw';
 import { setupWorker } from 'msw/browser';
 
@@ -5,6 +7,7 @@ const API_KEY = 'anon-test-key';
 const AUTHORIZATION = 'Bearer test-access-token';
 const COLLECTION_SELECT = '*,authors(*),comments(*,authors(*))';
 const SINGLE_SELECT = '*,authors(*),comments(*,authors(*))';
+export const POSTS_ENDPOINT = `${ENV.supabase.url.replace(/\/+$/, '')}/rest/v1/posts`;
 
 interface PostPayload {
   id: string;
@@ -85,7 +88,7 @@ function sortedKeys(body: Record<string, unknown>): string[] {
 
 function createHandlers() {
   return [
-    http.get('/posts', ({ request }) => {
+    http.get(POSTS_ENDPOINT, ({ request }) => {
       const authFailure = validateAuth(request);
       if (authFailure) {
         return authFailure;
@@ -156,7 +159,7 @@ function createHandlers() {
       return HttpResponse.json(posts);
     }),
 
-    http.post('/posts', async ({ request }) => {
+    http.post(POSTS_ENDPOINT, async ({ request }) => {
       const authFailure = validateAuth(request);
       if (authFailure) {
         return authFailure;
@@ -228,7 +231,7 @@ function createHandlers() {
       return HttpResponse.json(createdPost);
     }),
 
-    http.patch('/posts', async ({ request }) => {
+    http.patch(POSTS_ENDPOINT, async ({ request }) => {
       const authFailure = validateAuth(request);
       if (authFailure) {
         return authFailure;
@@ -289,7 +292,7 @@ function createHandlers() {
       return HttpResponse.json(updatedPost);
     }),
 
-    http.delete('/posts', ({ request }) => {
+    http.delete(POSTS_ENDPOINT, ({ request }) => {
       const authFailure = validateAuth(request);
       if (authFailure) {
         return authFailure;

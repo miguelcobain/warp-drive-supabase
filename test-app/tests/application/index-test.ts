@@ -4,6 +4,7 @@ import type Store from 'test-app/services/store';
 import { setupApplicationTest } from 'test-app/tests/helpers';
 import {
   HttpResponse,
+  POSTS_ENDPOINT,
   buildPost,
   delay,
   http,
@@ -26,7 +27,7 @@ module('Application | index', function (hooks) {
 
   test('it shows the loading state before rendering posts', async function (assert) {
     worker.use(
-      http.get('/posts', async function () {
+      http.get(POSTS_ENDPOINT, async function () {
         await delay(150);
         return HttpResponse.json([buildPost()]);
       }),
