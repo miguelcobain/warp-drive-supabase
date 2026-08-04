@@ -1,5 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 
@@ -7,8 +13,12 @@ const repoRoot = resolve(new URL('..', import.meta.url).pathname);
 const packRoot = resolve(repoRoot, '.tmp');
 const tempRoot = mkdtempSync(resolve(tmpdir(), 'warp-drive-supabase-smoke-'));
 const consumerDir = resolve(tempRoot, 'consumer');
-const rootPackage = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'));
-const testAppPackage = JSON.parse(readFileSync(resolve(repoRoot, 'test-app/package.json'), 'utf8'));
+const rootPackage = JSON.parse(
+  readFileSync(resolve(repoRoot, 'package.json'), 'utf8'),
+);
+const testAppPackage = JSON.parse(
+  readFileSync(resolve(repoRoot, 'test-app/package.json'), 'utf8'),
+);
 
 mkdirSync(consumerDir, { recursive: true });
 mkdirSync(packRoot, { recursive: true });
@@ -33,7 +43,8 @@ writeFileSync(
       type: 'module',
       dependencies: {
         '@warp-drive/core': testAppPackage.devDependencies['@warp-drive/core'],
-        '@warp-drive/utilities': testAppPackage.devDependencies['@warp-drive/utilities'],
+        '@warp-drive/utilities':
+          testAppPackage.devDependencies['@warp-drive/utilities'],
         'warp-drive-supabase': `file:${tarballPath}`,
       },
       devDependencies: {
@@ -41,8 +52,8 @@ writeFileSync(
       },
     },
     null,
-    2
-  )
+    2,
+  ),
 );
 
 writeFileSync(
@@ -50,16 +61,18 @@ writeFileSync(
   [
     "import { setBuildURLConfig } from '@warp-drive/utilities';",
     "import { query, findRecord, createRecord, updateRecord, SupabaseJsonApiHandler, SupabaseUpdatesHandler, createSupabaseAuthHandler } from 'warp-drive-supabase';",
+    "import type { PageOptions, PostgrestCountMode } from 'warp-drive-supabase';",
     '',
     "setBuildURLConfig({ host: 'https://example.supabase.co', namespace: 'rest/v1' });",
     '',
-    "const queryRequest = query('post');",
+    "const page: PageOptions = { size: 20, count: 'exact' satisfies PostgrestCountMode };",
+    "const queryRequest = query('post', { page });",
     "const recordRequest = findRecord('user', '1');",
     "const authHandler = createSupabaseAuthHandler({ apiKey: 'anon-key' });",
     'declare const post: unknown;',
     'declare const draft: unknown;',
-    "const createRequest = createRecord(draft);",
-    "const updateRequest = updateRecord(post);",
+    'const createRequest = createRecord(draft);',
+    'const updateRequest = updateRecord(post);',
     '',
     'void queryRequest;',
     'void recordRequest;',
@@ -68,7 +81,7 @@ writeFileSync(
     'void updateRequest;',
     'void SupabaseJsonApiHandler;',
     'void SupabaseUpdatesHandler;',
-  ].join('\n')
+  ].join('\n'),
 );
 
 writeFileSync(
@@ -86,8 +99,8 @@ writeFileSync(
       include: ['index.ts'],
     },
     null,
-    2
-  )
+    2,
+  ),
 );
 
 execFileSync('pnpm', ['install'], {

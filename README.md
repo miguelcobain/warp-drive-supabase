@@ -22,29 +22,29 @@ pnpm add @warp-drive/ember @warp-drive/json-api
 
 These create request configs you pass to `store.request(...)`.
 
-| Export | Purpose |
-| --- | --- |
-| `query` | Build a collection request for a PostgREST table or view |
-| `findRecord` | Build a single-record request using PostgREST's singular response mode |
-| `createRecord` | Build a create mutation from a new Warp Drive record |
-| `updateRecord` | Build an update mutation from an editable Warp Drive record |
-| `deleteRecord` | Build a delete mutation for a persisted Warp Drive record |
+| Export         | Purpose                                                                |
+| -------------- | ---------------------------------------------------------------------- |
+| `query`        | Build a collection request for a PostgREST table or view               |
+| `findRecord`   | Build a single-record request using PostgREST's singular response mode |
+| `createRecord` | Build a create mutation from a new Warp Drive record                   |
+| `updateRecord` | Build an update mutation from an editable Warp Drive record            |
+| `deleteRecord` | Build a delete mutation for a persisted Warp Drive record              |
 
 ### Handlers
 
 These are Warp Drive request handlers you add to the store pipeline.
 
-| Export | Purpose |
-| --- | --- |
+| Export                   | Purpose                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------- |
 | `SupabaseJsonApiHandler` | Transforms raw PostgREST payloads into JSON:API-shaped documents Warp Drive can cache |
-| `SupabaseUpdatesHandler` | Serializes changed attributes for create and update requests |
+| `SupabaseUpdatesHandler` | Serializes changed attributes for create and update requests                          |
 
 ### Auth
 
-| Export | Purpose |
-| --- | --- |
-| `createSupabaseAuthHandler` | Adds `apikey` and optional `Authorization` headers to outgoing requests |
-| `CreateSupabaseAuthHandlerOptions` | Type for configuring the auth handler |
+| Export                             | Purpose                                                                 |
+| ---------------------------------- | ----------------------------------------------------------------------- |
+| `createSupabaseAuthHandler`        | Adds `apikey` and optional `Authorization` headers to outgoing requests |
+| `CreateSupabaseAuthHandlerOptions` | Type for configuring the auth handler                                   |
 
 ### Import Paths
 
@@ -67,7 +67,10 @@ Subpath imports are also available if you prefer them:
 
 ```ts
 import { query, findRecord } from 'warp-drive-supabase/builders';
-import { SupabaseJsonApiHandler, SupabaseUpdatesHandler } from 'warp-drive-supabase/handlers';
+import {
+  SupabaseJsonApiHandler,
+  SupabaseUpdatesHandler,
+} from 'warp-drive-supabase/handlers';
 import { createSupabaseAuthHandler } from 'warp-drive-supabase/auth';
 ```
 
@@ -141,6 +144,7 @@ export default class PostsPage extends Component {
       query<Post>('post', {
         include: ['author', 'comments.author'],
         order: ['created_at.asc'],
+        page: { size: 20 },
       }),
     );
   }
@@ -181,6 +185,46 @@ const postRequest = store.request(
   }),
 );
 ```
+
+## Pagination
+
+Pass a one-based page number and page size to `query()`. The builder translates these values to
+PostgREST `limit` and `offset` parameters and requests an exact count by default.
+
+```ts
+const { content: firstPage } = await store.request(
+  query<Post>('post', {
+    order: ['created_at.asc'],
+    page: {
+      number: 1,
+      size: 20,
+    },
+  }),
+);
+
+firstPage.meta; // { page: { total: 87 } }
+
+const secondPage = await firstPage.next();
+const lastPage = await firstPage.last();
+```
+
+Paginated documents expose `self`, `first`, `prev`, `next`, and `last` links. Warp Drive uses
+these links for `fetch()`, `first()`, `prev()`, `next()`, and `last()`; a navigation method returns
+`null` when its corresponding link is unavailable.
+
+For large result sets, choose a faster PostgREST count strategy when an exact total is not worth
+the database cost:
+
+```ts
+query<Post>('post', {
+  order: ['created_at.asc'],
+  page: { size: 20, count: 'estimated' },
+});
+```
+
+Supported strategies are `exact`, `planned`, and `estimated`. Page sizes and numbers must be
+positive safe integers. Use a deterministic `order` whenever rows may be inserted, updated, or
+deleted while a user moves between offset-based pages.
 
 ## Mutation Example
 
@@ -239,6 +283,7 @@ export default class PostEditor extends Component {
   - `include` to valid include paths from `T`
   - `fields` to scalar fields on `T`
   - `order` to scalar fields on `T` plus valid PostgREST order suffixes
+  - paginated store responses to Warp Drive reactive documents with navigation methods
 - `findRecord<T>()` returns a single-resource document whose `data` is typed as `T`.
 
 ## Naming Assumptions
@@ -263,13 +308,13 @@ Implemented today:
 - JSON:API transformation handler
 - mutation payload handler
 - schema-aware `sourceKey` support
+- PostgREST page-number pagination with Warp Drive document navigation
 - Vitest unit coverage
 - real Ember consumer coverage in `test-app/`
 - MSW-backed Polaris-mode app tests
 
 Not implemented yet:
 
-- pagination helpers
 - schema-name customization hooks
 
 ## Development

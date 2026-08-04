@@ -1,5 +1,6 @@
 import { currentURL, visit, waitFor } from '@ember/test-helpers';
 
+import type { Post } from 'test-app/schemas';
 import type Store from 'test-app/services/store';
 import { setupApplicationTest } from 'test-app/tests/helpers';
 import {
@@ -12,6 +13,7 @@ import {
 } from 'test-app/tests/helpers/msw';
 
 import { module, test } from 'qunit';
+import { query } from 'warp-drive-supabase';
 
 function peekCachedRecord<T>(store: Store, type: string, id: string): T | null {
   const identifier = store.cacheKeyManager.getOrCreateRecordIdentifier({
@@ -71,5 +73,63 @@ module('Application | index', function (hooks) {
       null,
       'the included comment record is present in cache',
     );
+  });
+
+  test('it navigates paginated PostgREST collections through Warp Drive', async function (assert) {
+    const paginatedPosts = [
+      buildPost('First page', { id: '1' }),
+      buildPost('Second page', { id: '2' }),
+      buildPost('Third page', { id: '3' }),
+    ];
+    const observedOffsets: string[] = [];
+
+    worker.use(
+      http.get(POSTS_ENDPOINT, ({ request }) => {
+        const url = new URL(request.url);
+        const limit = Number(url.searchParams.get('limit'));
+        const offset = Number(url.searchParams.get('offset'));
+        const page = paginatedPosts.slice(offset, offset + limit);
+        observedOffsets.push(url.searchParams.get('offset') ?? 'missing');
+
+        assert.strictEqual(
+          url.hash,
+          '',
+          'pagination metadata is not sent to PostgREST',
+        );
+        assert.strictEqual(request.headers.get('Prefer'), 'count=exact');
+        assert.strictEqual(request.headers.get('apikey'), 'anon-test-key');
+        assert.strictEqual(
+          request.headers.get('Authorization'),
+          'Bearer test-access-token',
+        );
+
+        return HttpResponse.json(page, {
+          status: 206,
+          headers: {
+            'Content-Range': `${offset}-${offset + page.length - 1}/${paginatedPosts.length}`,
+          },
+        });
+      }),
+    );
+
+    const store = this.owner.lookup('service:store') as Store;
+    const firstResponse = await store.request(
+      query<Post>('post', {
+        order: ['created_at.asc'],
+        page: { size: 1 },
+      }),
+    );
+    const firstPage = firstResponse.content;
+    const secondPage = await firstPage.next();
+    const secondPageData = secondPage?.data;
+    const pageMeta = firstPage.meta?.['page'] as
+      | { total?: unknown }
+      | undefined;
+
+    assert.strictEqual(firstPage.data[0]?.title, 'First page');
+    assert.strictEqual(pageMeta?.total, 3);
+    assert.ok(secondPageData, 'the next page is a data document');
+    assert.strictEqual(secondPageData?.[0]?.title, 'Second page');
+    assert.deepEqual(observedOffsets, ['0', '1']);
   });
 });

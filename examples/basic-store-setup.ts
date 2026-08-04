@@ -33,7 +33,8 @@ store.request(
   query('post', {
     include: ['comments.author', 'author'],
     order: ['created_at.desc'],
-  })
+    page: { size: 20 },
+  }),
 );
 
 store.request(findRecord('user', '1', { include: ['role'] }));
