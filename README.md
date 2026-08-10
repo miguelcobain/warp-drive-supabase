@@ -202,7 +202,7 @@ const { content: firstPage } = await store.request(
   }),
 );
 
-firstPage.meta; // { page: { total: 87 } }
+firstPage.meta; // { currentPage: 1, totalPages: 5, totalItems: 87 }
 
 const secondPage = await firstPage.next();
 const lastPage = await firstPage.last();
@@ -211,6 +211,10 @@ const lastPage = await firstPage.last();
 Paginated documents expose `self`, `first`, `prev`, `next`, and `last` links. Warp Drive uses
 these links for `fetch()`, `first()`, `prev()`, `next()`, and `last()`; a navigation method returns
 `null` when its corresponding link is unavailable.
+
+The `currentPage` and `totalPages` metadata follow Warp Drive's pagination convention, so the
+document can be passed to `<Paginate />` without a custom page-hints adapter. `totalItems` is the
+total row count reported by PostgREST's `Content-Range` header.
 
 For large result sets, choose a faster PostgREST count strategy when an exact total is not worth
 the database cost:

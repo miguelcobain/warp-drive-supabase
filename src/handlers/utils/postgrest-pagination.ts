@@ -34,9 +34,9 @@ export interface JsonApiPagination {
     last: string;
   };
   meta: {
-    page: {
-      total: number;
-    };
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
   };
 }
 
@@ -173,9 +173,9 @@ export function buildJsonApiPagination(
       ),
     },
     meta: {
-      page: {
-        total: range.total,
-      },
+      currentPage: Math.floor(start / effectiveSize) + 1,
+      totalPages: Math.ceil(range.total / effectiveSize),
+      totalItems: range.total,
     },
   };
 }

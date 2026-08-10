@@ -122,12 +122,11 @@ module('Application | index', function (hooks) {
     const firstPage = firstResponse.content;
     const secondPage = await firstPage.next();
     const secondPageData = secondPage?.data;
-    const pageMeta = firstPage.meta?.['page'] as
-      | { total?: unknown }
-      | undefined;
 
     assert.strictEqual(firstPage.data[0]?.title, 'First page');
-    assert.strictEqual(pageMeta?.total, 3);
+    assert.strictEqual(firstPage.meta?.['currentPage'], 1);
+    assert.strictEqual(firstPage.meta?.['totalPages'], 3);
+    assert.strictEqual(firstPage.meta?.['totalItems'], 3);
     assert.ok(secondPageData, 'the next page is a data document');
     assert.strictEqual(secondPageData?.[0]?.title, 'Second page');
     assert.deepEqual(observedOffsets, ['0', '1']);

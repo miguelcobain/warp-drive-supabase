@@ -106,11 +106,19 @@ describe('SupabaseJsonApiHandler', () => {
     )) as {
       content: {
         links: Record<string, string | null>;
-        meta: { page: { total: number } };
+        meta: {
+          currentPage: number;
+          totalPages: number;
+          totalItems: number;
+        };
       };
     };
 
-    expect(result.content.meta.page.total).toBe(23);
+    expect(result.content.meta).toEqual({
+      currentPage: 2,
+      totalPages: 3,
+      totalItems: 23,
+    });
     expectPaginationLink(result.content.links.self, {
       limit: '10',
       offset: '10',
@@ -155,7 +163,22 @@ describe('SupabaseJsonApiHandler', () => {
         },
       } as never,
       next as never,
-    )) as { content: { links: Record<string, string | null> } };
+    )) as {
+      content: {
+        links: Record<string, string | null>;
+        meta: {
+          currentPage: number;
+          totalPages: number;
+          totalItems: number;
+        };
+      };
+    };
+
+    expect(result.content.meta).toEqual({
+      currentPage: 1,
+      totalPages: 3,
+      totalItems: 12,
+    });
 
     expectPaginationLink(result.content.links.next, {
       limit: '5',
@@ -192,7 +215,16 @@ describe('SupabaseJsonApiHandler', () => {
         },
       } as never,
       next as never,
-    )) as { content: { data: unknown[]; meta: { page: { total: number } } } };
+    )) as {
+      content: {
+        data: unknown[];
+        meta: {
+          currentPage: number;
+          totalPages: number;
+          totalItems: number;
+        };
+      };
+    };
 
     const forwardedRequest = next.mock.calls[0]?.[0];
     expect(forwardedRequest.url).toBe('/posts?select=*&limit=2&offset=2');
@@ -201,7 +233,11 @@ describe('SupabaseJsonApiHandler', () => {
     );
     expect(forwardedRequest.options.type).toBe('post');
     expect(result.content.data).toHaveLength(1);
-    expect(result.content.meta.page.total).toBe(5);
+    expect(result.content.meta).toEqual({
+      currentPage: 2,
+      totalPages: 3,
+      totalItems: 5,
+    });
   });
 
   it('represents an empty page with bounded links', async () => {
@@ -228,11 +264,19 @@ describe('SupabaseJsonApiHandler', () => {
     )) as {
       content: {
         links: Record<string, string | null>;
-        meta: { page: { total: number } };
+        meta: {
+          currentPage: number;
+          totalPages: number;
+          totalItems: number;
+        };
       };
     };
 
-    expect(result.content.meta.page.total).toBe(0);
+    expect(result.content.meta).toEqual({
+      currentPage: 1,
+      totalPages: 0,
+      totalItems: 0,
+    });
     expect(result.content.links.prev).toBeNull();
     expect(result.content.links.next).toBeNull();
     expect(result.content.links.first).toBe(result.content.links.last);
