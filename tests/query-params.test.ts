@@ -19,9 +19,9 @@ describe('query param serialization', () => {
     );
   });
 
-  it('sorts and deduplicates order clauses', () => {
-    expect(serializePostgrestOrder(['created_at.desc', 'name.asc', 'created_at.desc'])).toBe(
-      'created_at.desc,name.asc'
+  it('preserves order-clause priority while deduplicating', () => {
+    expect(serializePostgrestOrder(['name.asc', 'created_at.desc', 'name.asc'])).toBe(
+      'name.asc,created_at.desc'
     );
   });
 

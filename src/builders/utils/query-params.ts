@@ -63,7 +63,7 @@ export function serializePostgrestSelect(
 }
 
 export function serializePostgrestOrder(orders: string[] = []): string {
-  return [...new Set(normalizeValues(orders))].sort().join(',');
+  return [...new Set(normalizeValues(orders))].join(',');
 }
 
 export function serializePostgrestFields(fields: string[] = []): string {
