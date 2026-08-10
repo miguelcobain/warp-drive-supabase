@@ -1,6 +1,6 @@
 {
   "name": "warp-drive-supabase",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Supabase request builders and handlers for Warp Drive",
   "license": "MIT",
   "type": "module",
