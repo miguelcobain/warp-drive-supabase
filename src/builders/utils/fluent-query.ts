@@ -183,7 +183,7 @@ type EmbedAllPath<
 
 declare const EmbedReferenceType: unique symbol;
 
-export interface EmbedRef<
+interface EmbedReference<
   Row = Record<string, unknown>,
   Cardinality extends RelationshipCardinality = RelationshipCardinality,
   Alias extends string = string,
@@ -197,13 +197,66 @@ export interface EmbedRef<
   };
 }
 
+export interface EmbedRef<
+  Row = Record<string, unknown>,
+  Cardinality extends RelationshipCardinality = RelationshipCardinality,
+  Alias extends string = string,
+  Direct extends boolean = boolean,
+  Context = never,
+  Depth extends readonly unknown[] = any,
+> extends EmbedReference<Row, Cardinality, Alias, Direct> {
+  select(fields: readonly Field<Row>[]): this;
+  selectAll(): this;
+  selectRaw(segment: string): this;
+  embedAll(paths: readonly EmbedAllPath<Context, Depth>[]): this;
+  embed<
+    Target extends Depth extends readonly [] ? never : RelatedTable<Context>,
+  >(
+    table: Target,
+    configure?: EmbedCallback<
+      RowFor<Context, Target>,
+      ContextFor<Context, Target>,
+      Tail<Depth>
+    >,
+  ): EmbedRef<
+    RowFor<Context, Target>,
+    RelatedCardinality<Context, Target>,
+    Extract<Target, string>,
+    false,
+    ContextFor<Context, Target>,
+    Tail<Depth>
+  >;
+  embed<
+    Target extends Depth extends readonly [] ? never : RelatedTable<Context>,
+    const NestedAlias extends string = Extract<Target, string>,
+  >(
+    table: Target,
+    options: EmbedOptions<RelatedForeignKey<Context, Target>, NestedAlias>,
+    configure?: EmbedCallback<
+      RowFor<Context, Target>,
+      ContextFor<Context, Target>,
+      Tail<Depth>
+    >,
+  ): EmbedRef<
+    RowFor<Context, Target>,
+    RelatedCardinality<Context, Target>,
+    NestedAlias,
+    false,
+    ContextFor<Context, Target>,
+    Tail<Depth>
+  >;
+  where(configure: FilterCallback<Row>): this;
+  orderBy<Key extends Field<Row>>(field: Key, options?: OrderOptions): this;
+  orderByRaw(value: string): this;
+}
+
 interface ComparableFilterOperator<Row> {
   <Key extends Field<Row>>(
     field: Key,
     value: ComparableValue<Row, Key>,
   ): FilterBuilder<Row>;
   <RelatedRow, Key extends Field<RelatedRow>>(
-    embed: EmbedRef<RelatedRow>,
+    embed: EmbedReference<RelatedRow>,
     field: Key,
     value: ComparableValue<RelatedRow, Key>,
   ): FilterBuilder<Row>;
@@ -218,7 +271,7 @@ interface QuantifiedComparableFilterOperator<
     options: QuantifierOptions,
   ): FilterBuilder<Row>;
   <RelatedRow, Key extends Field<RelatedRow>>(
-    embed: EmbedRef<RelatedRow>,
+    embed: EmbedReference<RelatedRow>,
     field: Key,
     values: readonly ComparableValue<RelatedRow, Key>[],
     options: QuantifierOptions,
@@ -236,12 +289,12 @@ interface PatternFilterOperator<Row> {
     options: QuantifierOptions,
   ): FilterBuilder<Row>;
   <RelatedRow, Key extends PatternField<RelatedRow>>(
-    embed: EmbedRef<RelatedRow>,
+    embed: EmbedReference<RelatedRow>,
     field: Key,
     value: string,
   ): FilterBuilder<Row>;
   <RelatedRow, Key extends PatternField<RelatedRow>>(
-    embed: EmbedRef<RelatedRow>,
+    embed: EmbedReference<RelatedRow>,
     field: Key,
     values: readonly string[],
     options: QuantifierOptions,
@@ -255,7 +308,7 @@ interface FullTextFilterOperator<Row> {
     options?: FullTextOptions,
   ): FilterBuilder<Row>;
   <RelatedRow, Key extends SearchableField<RelatedRow>>(
-    embed: EmbedRef<RelatedRow>,
+    embed: EmbedReference<RelatedRow>,
     field: Key,
     query: string,
     options?: FullTextOptions,
@@ -268,7 +321,7 @@ interface FieldValueFilterOperator<Row> {
     value: FieldValue<Row, Key>,
   ): FilterBuilder<Row>;
   <RelatedRow, Key extends Field<RelatedRow>>(
-    embed: EmbedRef<RelatedRow>,
+    embed: EmbedReference<RelatedRow>,
     field: Key,
     value: FieldValue<RelatedRow, Key>,
   ): FilterBuilder<Row>;
@@ -280,7 +333,7 @@ interface CollectionFilterOperator<Row> {
     value: CollectionValue<Row, Key>,
   ): FilterBuilder<Row>;
   <RelatedRow, Key extends Field<RelatedRow>>(
-    embed: EmbedRef<RelatedRow>,
+    embed: EmbedReference<RelatedRow>,
     field: Key,
     value: CollectionValue<RelatedRow, Key>,
   ): FilterBuilder<Row>;
@@ -292,7 +345,7 @@ interface IsFilterOperator<Row> {
     value: IsValue<Row, Key>,
   ): FilterBuilder<Row>;
   <RelatedRow, Key extends Field<RelatedRow>>(
-    embed: EmbedRef<RelatedRow>,
+    embed: EmbedReference<RelatedRow>,
     field: Key,
     value: IsValue<RelatedRow, Key>,
   ): FilterBuilder<Row>;
@@ -304,7 +357,7 @@ interface InFilterOperator<Row> {
     values: readonly ComparableValue<Row, Key>[],
   ): FilterBuilder<Row>;
   <RelatedRow, Key extends Field<RelatedRow>>(
-    embed: EmbedRef<RelatedRow>,
+    embed: EmbedReference<RelatedRow>,
     field: Key,
     values: readonly ComparableValue<RelatedRow, Key>[],
   ): FilterBuilder<Row>;
@@ -313,7 +366,7 @@ interface InFilterOperator<Row> {
 interface RawFilterOperator<Row> {
   (field: string, value: string): FilterBuilder<Row>;
   <RelatedRow>(
-    embed: EmbedRef<RelatedRow>,
+    embed: EmbedReference<RelatedRow>,
     field: string,
     value: string,
   ): FilterBuilder<Row>;
@@ -378,7 +431,9 @@ interface SelectionBuilder<
     RowFor<Context, Target>,
     RelatedCardinality<Context, Target>,
     Extract<Target, string>,
-    DirectChildren
+    DirectChildren,
+    ContextFor<Context, Target>,
+    Tail<Depth>
   >;
   embed<
     Target extends Depth extends readonly [] ? never : RelatedTable<Context>,
@@ -395,7 +450,9 @@ interface SelectionBuilder<
     RowFor<Context, Target>,
     RelatedCardinality<Context, Target>,
     Alias,
-    DirectChildren
+    DirectChildren,
+    ContextFor<Context, Target>,
+    Tail<Depth>
   >;
 }
 
@@ -427,7 +484,7 @@ export interface QueryBuilder<
   where(configure: FilterCallback<Row>): this;
   orderBy<Key extends Field<Row>>(field: Key, options?: OrderOptions): this;
   orderBy<RelatedRow, Alias extends string>(
-    embed: EmbedRef<RelatedRow, 'one', Alias, true>,
+    embed: EmbedReference<RelatedRow, 'one', Alias, true>,
     field: Field<RelatedRow>,
     options?: OrderOptions,
   ): this;
@@ -505,6 +562,8 @@ interface RuntimeEmbedRef {
   node: EmbedNode;
   direct: boolean;
 }
+
+const EMBED_REFERENCES = new WeakMap<object, RuntimeEmbedRef>();
 
 function createSelectNode(): SelectNode {
   return { fields: [], all: false, entries: [], embeds: [] };
@@ -627,17 +686,18 @@ abstract class SelectionBuilderImpl {
       table,
       options,
     );
-    const builder = new EmbedBuilderImpl(node, this.owner, node.path);
+    const builder = new EmbedBuilderImpl(
+      node,
+      this.owner,
+      node.path,
+      this.directChildren,
+    );
     runSynchronousCallback(
       callback as ((embed: unknown) => void) | undefined,
       builder,
       'embed',
     );
-    return {
-      owner: this.owner,
-      node,
-      direct: this.directChildren,
-    } as unknown as EmbedRef;
+    return builder as unknown as EmbedRef;
   }
 
   private createEmbedNode(
@@ -674,8 +734,10 @@ class EmbedBuilderImpl extends SelectionBuilderImpl {
     private readonly node: EmbedNode,
     owner: object,
     path: string,
+    direct: boolean,
   ) {
     super(node, owner, false, path);
+    EMBED_REFERENCES.set(this, { owner, node, direct });
   }
 
   where(configure: FilterCallback<Record<string, unknown>>): this {
@@ -717,7 +779,7 @@ class QueryBuilderImpl extends SelectionBuilderImpl {
   }
 
   orderBy(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrOptions?: string | OrderOptions,
     relatedOptions?: OrderOptions,
   ): this {
@@ -774,7 +836,7 @@ class FilterBuilderImpl {
 
   private add(
     operator: string,
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     valueOrOptions?: unknown,
     relatedOptions?: QuantifierOptions | FullTextOptions,
@@ -825,7 +887,7 @@ class FilterBuilderImpl {
   }
 
   private resolveArguments(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     valueOrOptions?: unknown,
     relatedOptions?: QuantifierOptions | FullTextOptions,
@@ -862,7 +924,7 @@ class FilterBuilderImpl {
   }
 
   eq(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     valueOrOptions?: unknown,
     relatedOptions?: QuantifierOptions,
@@ -876,14 +938,14 @@ class FilterBuilderImpl {
     );
   }
   neq(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     value?: unknown,
   ): this {
     return this.add('neq', fieldOrEmbed, fieldOrValue, value);
   }
   gt(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     valueOrOptions?: unknown,
     relatedOptions?: QuantifierOptions,
@@ -897,7 +959,7 @@ class FilterBuilderImpl {
     );
   }
   gte(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     valueOrOptions?: unknown,
     relatedOptions?: QuantifierOptions,
@@ -911,7 +973,7 @@ class FilterBuilderImpl {
     );
   }
   lt(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     valueOrOptions?: unknown,
     relatedOptions?: QuantifierOptions,
@@ -925,7 +987,7 @@ class FilterBuilderImpl {
     );
   }
   lte(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     valueOrOptions?: unknown,
     relatedOptions?: QuantifierOptions,
@@ -939,28 +1001,28 @@ class FilterBuilderImpl {
     );
   }
   in(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     value?: unknown,
   ): this {
     return this.add('in', fieldOrEmbed, fieldOrValue, value);
   }
   is(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     value?: unknown,
   ): this {
     return this.add('is', fieldOrEmbed, fieldOrValue, value);
   }
   isDistinct(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     value?: unknown,
   ): this {
     return this.add('isdistinct', fieldOrEmbed, fieldOrValue, value);
   }
   like(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     valueOrOptions?: unknown,
     relatedOptions?: QuantifierOptions,
@@ -974,7 +1036,7 @@ class FilterBuilderImpl {
     );
   }
   ilike(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     valueOrOptions?: unknown,
     relatedOptions?: QuantifierOptions,
@@ -988,7 +1050,7 @@ class FilterBuilderImpl {
     );
   }
   match(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     valueOrOptions?: unknown,
     relatedOptions?: QuantifierOptions,
@@ -1002,7 +1064,7 @@ class FilterBuilderImpl {
     );
   }
   imatch(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     valueOrOptions?: unknown,
     relatedOptions?: QuantifierOptions,
@@ -1016,7 +1078,7 @@ class FilterBuilderImpl {
     );
   }
   fts(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrQuery: string,
     queryOrOptions?: string | FullTextOptions,
     relatedOptions?: FullTextOptions,
@@ -1030,7 +1092,7 @@ class FilterBuilderImpl {
     );
   }
   plfts(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrQuery: string,
     queryOrOptions?: string | FullTextOptions,
     relatedOptions?: FullTextOptions,
@@ -1044,7 +1106,7 @@ class FilterBuilderImpl {
     );
   }
   phfts(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrQuery: string,
     queryOrOptions?: string | FullTextOptions,
     relatedOptions?: FullTextOptions,
@@ -1058,7 +1120,7 @@ class FilterBuilderImpl {
     );
   }
   wfts(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrQuery: string,
     queryOrOptions?: string | FullTextOptions,
     relatedOptions?: FullTextOptions,
@@ -1072,56 +1134,56 @@ class FilterBuilderImpl {
     );
   }
   cs(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     value?: unknown,
   ): this {
     return this.add('cs', fieldOrEmbed, fieldOrValue, value);
   }
   cd(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     value?: unknown,
   ): this {
     return this.add('cd', fieldOrEmbed, fieldOrValue, value);
   }
   ov(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     value?: unknown,
   ): this {
     return this.add('ov', fieldOrEmbed, fieldOrValue, value);
   }
   sl(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     value?: unknown,
   ): this {
     return this.add('sl', fieldOrEmbed, fieldOrValue, value);
   }
   sr(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     value?: unknown,
   ): this {
     return this.add('sr', fieldOrEmbed, fieldOrValue, value);
   }
   nxr(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     value?: unknown,
   ): this {
     return this.add('nxr', fieldOrEmbed, fieldOrValue, value);
   }
   nxl(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     value?: unknown,
   ): this {
     return this.add('nxl', fieldOrEmbed, fieldOrValue, value);
   }
   adj(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: unknown,
     value?: unknown,
   ): this {
@@ -1162,7 +1224,7 @@ class FilterBuilderImpl {
   }
 
   raw(
-    fieldOrEmbed: string | EmbedRef,
+    fieldOrEmbed: string | EmbedReference,
     fieldOrValue: string,
     relatedValue?: string,
   ): this {
@@ -1463,14 +1525,14 @@ function validateFullTextConfig(config: string): string {
 }
 
 function assertEmbedReference(
-  embed: EmbedRef<any>,
+  embed: EmbedReference<any>,
   owner: object,
 ): RuntimeEmbedRef {
   if (typeof embed !== 'object' || embed === null) {
     throw new TypeError('expected an embed reference.');
   }
-  const reference = embed as unknown as RuntimeEmbedRef;
-  if (reference.owner !== owner || !reference.node) {
+  const reference = EMBED_REFERENCES.get(embed as unknown as object);
+  if (!reference || reference.owner !== owner) {
     throw new TypeError('embed reference belongs to another query.');
   }
   return reference;

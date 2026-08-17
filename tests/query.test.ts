@@ -204,6 +204,36 @@ describe('fluent query builder', () => {
     expect(url.searchParams.get('select')).toBe('comments(id)');
   });
 
+  it('returns a configurable embed reference', () => {
+    const request = query<Post>('post', (q) => {
+      const author = q
+        .embed('users', {
+          as: 'authors',
+          using: 'posts_author_id_fkey',
+        })
+        .select(['id', 'name'])
+        .where((filter) => filter.eq('active', true))
+        .orderBy('name');
+
+      q.where((filter) => filter.ilike(author, 'name', 'A*'));
+      q.orderBy(author, 'created_at', { direction: 'desc' });
+
+      q.embed('comments')
+        .selectAll()
+        .embed('users', { as: 'commenters' })
+        .select(['id', 'name']);
+    });
+    const url = new URL(request.url, 'https://example.test');
+
+    expect(url.searchParams.get('select')).toBe(
+      'authors:users!posts_author_id_fkey(id,name),comments(*,commenters:users(id,name))',
+    );
+    expect(url.searchParams.get('authors.active')).toBe('eq.true');
+    expect(url.searchParams.get('authors.name')).toBe('ilike."A*"');
+    expect(url.searchParams.get('authors.order')).toBe('name');
+    expect(url.searchParams.get('order')).toBe('authors(created_at).desc');
+  });
+
   it('preserves selection call order and deduplicates across methods', () => {
     const request = query<Post>('post', (q) => {
       q.select(['id']);

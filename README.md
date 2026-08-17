@@ -216,6 +216,21 @@ by the Warp Drive schema.
 Use `selectRaw()` for trusted JSON paths, spreads, computed relationships, and column expressions.
 Raw selections may be combined with either named fields or `selectAll()`.
 
+The value returned by `embed()` is both a reference and a configurable embedded builder. This
+keeps straightforward embeds compact while preserving the same value for related filters and
+ordering:
+
+```ts
+query<Post>('post', (q) => {
+  const author = q
+    .embed('users', { as: 'authors', using: 'posts_author_id_fkey' })
+    .select(['id', 'name']);
+
+  q.where((filter) => filter.eq(author, 'active', true));
+  q.orderBy(author, 'name');
+});
+```
+
 For relationships where every level should select `*`, use typed relationship paths instead of
 declaring each embed callback:
 
@@ -227,12 +242,15 @@ query<Post>('post', (q) => {
 
 `embedAll()` merges shared prefixes, preserves path order, and deduplicates repeated paths. Use
 `embed()` when an alias, foreign-key hint, join mode, explicit field selection, filter, or order is
-needed. When no options are required, pass the callback directly as the second argument:
+needed. Configure its returned reference directly, or pass a callback as the second argument when
+no options are required:
 
 ```ts
 q.embed('comments', (comments) => {
   comments.select(['id', 'body']);
 });
+
+q.embed('comments').select(['id', 'body']);
 ```
 
 `findRecord()` uses the same selection and embed API while retaining singular Warp Drive request

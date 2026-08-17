@@ -70,7 +70,7 @@ writeFileSync(
     "interface Post { [Type]: 'post'; readonly [SupabaseTable]?: SupabaseTableDefinition<Database, 'public', 'posts'>; id: string; createdAt: string }",
     'const configure: QueryCallbackFor<Post> = (q) => {',
     "  q.select(['id', 'created_at']);",
-    "  const users = q.embed('users', (user) => user.selectAll());",
+    "  const users = q.embed('users').selectAll();",
     "  q.where((filter) => filter.gte('created_at', '2026-01-01'));",
     "  q.where((filter) => filter.eq(users, 'name', 'Ada'));",
     "  q.orderBy('created_at', { direction: 'desc' });",
