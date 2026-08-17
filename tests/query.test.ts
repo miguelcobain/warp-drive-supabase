@@ -352,6 +352,30 @@ describe('fluent query builder', () => {
     expect(url.searchParams.get('authors.metadata->>priority')).toBe('eq.high');
   });
 
+  it('filters by related resource existence without raw clauses', () => {
+    const request = query<Post>('post', (q) => {
+      const author = q.embed('users', { as: 'authors' });
+      const comments = q.embed('comments');
+      const commenter = comments.embed('users', { as: 'commenter' });
+
+      q.where((filter) => {
+        filter.notExists(comments);
+        filter.or((either) => {
+          either.ilike('title', '*search*');
+          either.exists(author);
+        });
+      });
+      comments.where((filter) => filter.notExists(commenter));
+    });
+    const url = new URL(request.url, 'https://example.test');
+
+    expect(url.searchParams.get('comments')).toBe('is.null');
+    expect(url.searchParams.get('or')).toBe(
+      '(title.ilike."*search*",authors.not.is.null)',
+    );
+    expect(url.searchParams.get('comments.commenter')).toBe('is.null');
+  });
+
   it('allows arbitrary database strings without an association', () => {
     void query<UnassociatedPost>('post', (q) => {
       q.select(['database_only']);
@@ -403,6 +427,9 @@ describe('fluent query builder', () => {
         q.where((filter) => filter.eq(author, 'name', 'Ada')),
       ),
     ).toThrow(TypeError);
+    expect(() =>
+      query('post', (q) => q.where((filter) => filter.exists(author))),
+    ).toThrow(TypeError);
   });
 
   it('enforces Supabase columns, values, relationships, and cardinality', () => {
@@ -435,6 +462,8 @@ describe('fluent query builder', () => {
           f.eq(author, 'active', 'yes');
           // @ts-expect-error related() was removed in favor of EmbedRef-first operators
           f.related(author);
+          // @ts-expect-error relationship existence requires an EmbedRef
+          f.exists('authors');
         });
         // @ts-expect-error table is not directly related
         q.embed('missing_table');

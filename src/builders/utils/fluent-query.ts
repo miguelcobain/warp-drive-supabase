@@ -401,6 +401,8 @@ export interface FilterBuilder<Row = Record<string, unknown>> {
   and(configure: FilterCallback<Row>): this;
   or(configure: FilterCallback<Row>): this;
   not(configure: FilterCallback<Row>): this;
+  exists(embed: EmbedReference): this;
+  notExists(embed: EmbedReference): this;
   raw: RawFilterOperator<Row>;
 }
 
@@ -538,6 +540,7 @@ type FilterNode =
       config?: string;
     }
   | { kind: 'group'; operator: 'and' | 'or' | 'not'; terms: FilterNode[] }
+  | { kind: 'existence'; field: string; exists: boolean }
   | { kind: 'raw'; field: string; value: string };
 
 type OrderNode =
@@ -910,17 +913,21 @@ class FilterBuilderImpl {
       };
     }
 
-    const reference = assertEmbedReference(fieldOrEmbed, this.owner);
-    const relatedPrefix =
-      this.scope && reference.node.path.startsWith(`${this.scope}.`)
-        ? reference.node.path.slice(this.scope.length + 1)
-        : reference.node.path;
     return {
       field: fieldOrValue,
       value: valueOrOptions,
       ...(relatedOptions !== undefined ? { options: relatedOptions } : {}),
-      prefix: this.prefix ? `${this.prefix}.${relatedPrefix}` : relatedPrefix,
+      prefix: this.resolveEmbedPath(fieldOrEmbed),
     };
+  }
+
+  private resolveEmbedPath(embed: EmbedReference): string {
+    const reference = assertEmbedReference(embed, this.owner);
+    const relatedPath =
+      this.scope && reference.node.path.startsWith(`${this.scope}.`)
+        ? reference.node.path.slice(this.scope.length + 1)
+        : reference.node.path;
+    return this.prefix ? `${this.prefix}.${relatedPath}` : relatedPath;
   }
 
   eq(
@@ -1200,6 +1207,24 @@ class FilterBuilderImpl {
     return this.group('not', configure);
   }
 
+  exists(embed: EmbedReference): this {
+    this.terms.push({
+      kind: 'existence',
+      field: this.resolveEmbedPath(embed),
+      exists: true,
+    });
+    return this;
+  }
+
+  notExists(embed: EmbedReference): this {
+    this.terms.push({
+      kind: 'existence',
+      field: this.resolveEmbedPath(embed),
+      exists: false,
+    });
+    return this;
+  }
+
   private group(
     operator: 'and' | 'or' | 'not',
     configure: FilterCallback<Record<string, unknown>>,
@@ -1390,6 +1415,11 @@ function appendRootFilter(
   const prefix = scope ? `${scope}.` : '';
   if (node.kind === 'predicate') {
     searchParams.append(`${prefix}${node.field}`, serializePredicate(node));
+  } else if (node.kind === 'existence') {
+    searchParams.append(
+      `${prefix}${node.field}`,
+      node.exists ? 'not.is.null' : 'is.null',
+    );
   } else if (node.kind === 'raw') {
     searchParams.append(`${prefix}${node.field}`, node.value);
   } else {
@@ -1404,6 +1434,9 @@ function appendRootFilter(
 function serializeFilterTerm(node: FilterNode): string {
   if (node.kind === 'predicate') {
     return `${node.field}.${serializePredicate(node)}`;
+  }
+  if (node.kind === 'existence') {
+    return `${node.field}.${node.exists ? 'not.is.null' : 'is.null'}`;
   }
   if (node.kind === 'raw') {
     return `${node.field}.${node.value}`;

@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-08-17
+
+### Added
+
+- Added typed `exists(embed)` and `notExists(embed)` filter predicates for PostgREST embedded
+  resource existence checks without raw alias strings.
+
 ## [0.7.0] - 2026-08-17
 
 ### Added

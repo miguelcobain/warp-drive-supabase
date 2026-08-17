@@ -73,6 +73,7 @@ writeFileSync(
     "  const users = q.embed('users').selectAll();",
     "  q.where((filter) => filter.gte('created_at', '2026-01-01'));",
     "  q.where((filter) => filter.eq(users, 'name', 'Ada'));",
+    '  q.where((filter) => filter.exists(users));',
     "  q.orderBy('created_at', { direction: 'desc' });",
     "  q.page({ size: 20, count: 'exact' });",
     '};',

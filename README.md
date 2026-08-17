@@ -315,6 +315,23 @@ filter.fts(author, 'biography', 'computer science', {
 });
 ```
 
+Use `exists()` and `notExists()` for relationship existence predicates. They accept an
+`EmbedRef`, including inside logical groups, and serialize to PostgREST's `not.is.null` and
+`is.null` embedded-resource filters:
+
+```ts
+query<Post>('post', (q) => {
+  const author = q.embed('users', { as: 'authors' });
+
+  q.where((filter) => {
+    filter.or((either) => {
+      either.ilike('title', '*search term*');
+      either.exists(author);
+    });
+  });
+});
+```
+
 Undefined operands, empty groups, and empty `in`, `any`, or `all` lists are rejected. Use
 `filter.raw(field, value)` for trusted JSON/composite paths or future PostgREST syntax.
 
