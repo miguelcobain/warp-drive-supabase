@@ -1,7 +1,6 @@
 import type {
   TypedRecordInstance,
   TypeFromInstance,
-  Includes,
 } from '@warp-drive/core/types/record';
 import type {
   ConstrainedRequestOptions,
@@ -10,90 +9,67 @@ import type {
 import type { ReactiveDataDocument } from '@warp-drive/core/reactive';
 
 import {
-  serializePostgrestSelect,
-  serializePostgrestOrder,
-  type OrderClause,
-} from './utils/query-params';
-import {
-  appendPostgrestFilter,
-  type Filter,
-  type FilterExpression,
-  type FilterField,
-  type RawFilter,
-} from './utils/filter';
-import type { SupabaseRow } from './supabase-table';
+  appendFluentQuery,
+  createFluentQuery,
+  paginationFromState,
+  type EmbedBuilder,
+  type EmbedCallback,
+  type EmbedOptions,
+  type EmbedRef,
+  type FilterBuilder,
+  type FilterCallback,
+  type FullTextOptions,
+  type OrderDirection,
+  type OrderNulls,
+  type OrderOptions,
+  type QuantifierOptions,
+  type QueryBuilder,
+  type QueryCallback,
+  type RelationshipCardinality,
+} from './utils/fluent-query';
+import type { SupabaseContext, SupabaseRow } from './supabase-table';
 import { pluralizeType, underscore } from '../utils/string';
 import { buildQueryParams } from '../utils/url';
 import { buildPostgrestBaseURL } from './utils/url-options';
-import {
-  DEFAULT_POSTGREST_COUNT_MODE,
-  isPostgrestCountMode,
-  type PageOptions,
-  type PostgrestCountMode,
-  type PostgrestPaginationRequestOptions,
+import type {
+  PageOptions,
+  PostgrestCountMode,
+  PostgrestPaginationRequestOptions,
 } from '../pagination';
 
-type ScalarFieldValue = string | number | boolean | bigint | null | undefined;
-
-type SnakeCase<S extends string> = S extends `${infer Head}${infer Tail}`
-  ? Tail extends Uncapitalize<Tail>
-    ? `${Lowercase<Head>}${SnakeCase<Tail>}`
-    : `${Lowercase<Head>}_${SnakeCase<Tail>}`
-  : S;
-
-type QueryableFieldKey<T extends TypedRecordInstance> = Exclude<
-  {
-    [K in Extract<keyof T, string>]: NonNullable<T[K]> extends ScalarFieldValue
-      ? K
-      : never;
-  }[Extract<keyof T, string>],
-  '$type'
->;
-
-type QueryableFieldName<T extends TypedRecordInstance> =
-  | QueryableFieldKey<T>
-  | SnakeCase<QueryableFieldKey<T>>;
-
-type BestGuessOrderField<T extends TypedRecordInstance> = SnakeCase<
-  QueryableFieldKey<T>
->;
-
-export type OrderField<T extends TypedRecordInstance> = [
-  SupabaseRow<T>,
-] extends [never]
-  ? BestGuessOrderField<T>
-  : Extract<keyof SupabaseRow<T>, string>;
-
-export interface QueryOptions<T = unknown> extends ConstrainedRequestOptions {
-  include?: T extends TypedRecordInstance
-    ? Includes<T> | Includes<T>[]
-    : string | string[];
-  order?: T extends TypedRecordInstance
-    ? OrderClause<OrderField<T>>[]
-    : OrderClause[];
-  fields?: T extends TypedRecordInstance ? QueryableFieldName<T>[] : string[];
-  filter?: Filter<T>;
-  page?: PageOptions;
-}
+export interface QueryOptions extends ConstrainedRequestOptions {}
 
 type QueryRequestOptions<RT = unknown> = BaseQueryRequestOptions<RT> & {
   options?: Record<string, unknown>;
 };
 
+type QueryBuilderFor<T> = [SupabaseContext<T>] extends [never]
+  ? QueryBuilder<Record<string, unknown>, never>
+  : QueryBuilder<SupabaseRow<T>, SupabaseContext<T>>;
+
+export type QueryCallbackFor<T> = (query: QueryBuilderFor<T>) => void;
+
 export function query<T extends TypedRecordInstance>(
   type: TypeFromInstance<T>,
-  options?: QueryOptions<T>,
+  configure?: QueryCallbackFor<T>,
+  options?: QueryOptions,
 ): QueryRequestOptions<ReactiveDataDocument<T[]>>;
 
 export function query(
   type: string,
+  configure?: QueryCallback,
   options?: QueryOptions,
 ): QueryRequestOptions;
 
 export function query(
   type: string,
+  configure?: any,
   options: QueryOptions = {},
 ): QueryRequestOptions {
+  if (configure !== undefined && typeof configure !== 'function') {
+    throw new TypeError('query configure must be a function.');
+  }
+
   const headers = new Headers();
   headers.append('Accept', 'application/json;charset=utf-8');
 
@@ -102,43 +78,17 @@ export function query(
     pluralizeType(underscore(type)),
     options,
   );
-
+  const state = createFluentQuery(configure);
   const queryParams = new URLSearchParams();
+  appendFluentQuery(state, queryParams);
 
-  const select = serializePostgrestSelect(options.include, options.fields);
-
-  queryParams.append('select', select);
-  if (options.order) {
-    queryParams.append('order', serializePostgrestOrder(options.order));
-  }
-  if (options.filter) {
-    appendPostgrestFilter(options.filter, queryParams);
-  }
-
+  const fluentPagination = paginationFromState(state);
   let pagination: PostgrestPaginationRequestOptions | undefined;
-  if (options.page) {
-    const {
-      size,
-      number = 1,
-      count = DEFAULT_POSTGREST_COUNT_MODE,
-    } = options.page;
-    assertPositiveSafeInteger(size, 'page.size');
-    assertPositiveSafeInteger(number, 'page.number');
-    if (!isPostgrestCountMode(count)) {
-      throw new RangeError('page.count must be exact, planned, or estimated.');
-    }
-
-    const offset = (number - 1) * size;
-    if (!Number.isSafeInteger(offset)) {
-      throw new RangeError(
-        'page.number and page.size produce an unsafe PostgREST offset.',
-      );
-    }
-
-    queryParams.set('limit', String(size));
-    queryParams.set('offset', String(offset));
-    headers.append('Prefer', `count=${count}`);
-    pagination = { count };
+  if (fluentPagination) {
+    queryParams.set('limit', String(fluentPagination.limit));
+    queryParams.set('offset', String(fluentPagination.offset));
+    headers.append('Prefer', `count=${fluentPagination.count}`);
+    pagination = { count: fluentPagination.count };
   }
 
   const queryString = buildQueryParams(queryParams);
@@ -149,24 +99,27 @@ export function query(
     headers,
     op: 'query',
     options: {
-      type: type,
+      type,
       ...(pagination ? { postgrestPagination: pagination } : {}),
     },
   };
 }
 
-function assertPositiveSafeInteger(value: number, name: string): void {
-  if (!Number.isSafeInteger(value) || value < 1) {
-    throw new RangeError(`${name} must be a positive safe integer.`);
-  }
-}
-
 export type {
-  Filter,
-  FilterExpression,
-  FilterField,
-  OrderClause,
+  EmbedBuilder,
+  EmbedCallback,
+  EmbedOptions,
+  EmbedRef,
+  FilterBuilder,
+  FilterCallback,
+  FullTextOptions,
+  OrderDirection,
+  OrderNulls,
+  OrderOptions,
   PageOptions,
   PostgrestCountMode,
-  RawFilter,
+  QuantifierOptions,
+  QueryBuilder,
+  QueryCallback,
+  RelationshipCardinality,
 };

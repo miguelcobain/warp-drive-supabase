@@ -17,9 +17,9 @@ export default class FailureTemplate extends Component {
   @cached
   get failureRequest() {
     return this.store.request(
-      query<Post>('post', {
-        filter: { $raw: { field: 'fail', value: 'read' } },
-        include: ['author', 'comments.author'],
+      query<Post>('post', (q) => {
+        q.selectAll().embedAll(['authors', 'comments.authors']);
+        q.where((filter) => filter.raw('fail', 'read'));
       }),
     );
   }

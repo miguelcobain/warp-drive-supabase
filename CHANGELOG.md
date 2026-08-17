@@ -5,6 +5,52 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-08-17
+
+### Added
+
+- Added a synchronous fluent query builder with first-class selection, embeds, filters, ordering,
+  related filtering and ordering, and pagination.
+- Added `SupabaseTableDefinition` to associate a generated database, schema, and table context with
+  a Warp Drive resource through `SupabaseTable`.
+- Added typed direct and reverse relationship traversal, foreign-key hints, embed aliases, join
+  modes, nested embeds, and relationship cardinality.
+- Added `selectRaw()`, `filter.raw()`, and `orderByRaw()` escape hatches for trusted PostgREST syntax
+  not represented by the fluent API.
+- Added typed `embedAll()` relationship paths and callback-only `embed(table, callback)` overloads
+  for concise complete relationship selections.
+- Added EmbedRef-first overloads to every filter operator for related-table predicates, matching
+  the related `orderBy()` API.
+- Exported `QueryBuilder`, `FilterBuilder`, `EmbedBuilder`, `EmbedRef`, and their reusable callback
+  and option types.
+
+### Changed
+
+- Changed collection queries to `query(type, configure?, requestOptions?)`; configure callbacks run
+  synchronously exactly once while the request is built.
+- Changed singular queries to `findRecord(type, id, configure?, requestOptions?)` and the equivalent
+  identifier overload. Its fluent root builder exposes selection and embeds only.
+- Query and singular-record typing now come exclusively from generated Supabase table definitions.
+  Unassociated Warp Drive resources retain typed results while database fields and relationships
+  accept strings.
+- Root queries default to `*` until an explicit selection or embed is added.
+- Moved page-number pagination into `q.page()`.
+
+### Breaking
+
+- Removed `fields`, `include`, object `filter`, structured `order` arrays, and object `page` options
+  from `query()`. Use `select()`, `embed()`, `where()`, `orderBy()`, and `page()` in its callback.
+- Existing `SupabaseTable` associations must use
+  `SupabaseTableDefinition<Database, Schema, Table>` so relationship context is available.
+- Removed Warp Drive schema-derived guesses for query fields and relationships.
+- Moved per-request URL configuration to the third `query()` argument.
+- Removed legacy `include` options from `findRecord()` and moved its per-request URL configuration
+  to the final argument.
+- Removed the separate `filter.related(embed)` scoping method; pass the embed reference directly to
+  the filter operator instead.
+
+`findRecord()` retains its singular response, record identity, cache operation, and result typing.
+
 ## [0.5.0] - 2026-08-17
 
 ### Added
@@ -124,6 +170,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added root and subpath package exports for builders, handlers, and authentication.
 - Added a real Ember consumer application, unit and application tests, package smoke testing, and CI.
 
+[0.6.0]: https://github.com/miguelcobain/warp-drive-supabase/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/miguelcobain/warp-drive-supabase/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/miguelcobain/warp-drive-supabase/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/miguelcobain/warp-drive-supabase/compare/v0.3.0...v0.3.1

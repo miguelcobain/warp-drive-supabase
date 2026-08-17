@@ -141,10 +141,10 @@ export default class PostsPage extends Component {
   @cached
   get postsRequest() {
     return this.store.request(
-      query<Post>('post', {
-        include: ['author', 'comments.author'],
-        order: [{ field: 'created_at', direction: 'asc' }],
-        page: { size: 20 },
+      query<Post>('post', (q) => {
+        q.selectAll().embedAll(['authors', 'comments.authors']);
+        q.orderBy('created_at', { direction: 'asc' });
+        q.page({ size: 20 });
       }),
     );
   }
@@ -180,102 +180,162 @@ For single-record loads:
 
 ```ts
 const postRequest = store.request(
-  findRecord<Post>('post', postId, {
-    include: ['author', 'comments.author'],
+  findRecord<Post>('post', postId, (q) => {
+    q.selectAll().embedAll(['authors', 'comments.authors']);
   }),
 );
 ```
 
-## Ordering
+## Selecting and Embedding
 
-Order clauses use structured objects. `direction` may be `asc` or `desc`, and `nulls` may be
-`first` or `last`. A bare field uses PostgREST's default ascending order.
+A query selects every root column by default. Use `select()` for an explicit column list,
+`selectAll()` for an explicit `*`, and `embed()` for related tables. Selection calls append in call
+order and ignore exact duplicates.
 
 ```ts
-query<Post>('post', {
-  order: [
-    { field: 'created_at', direction: 'desc', nulls: 'last' },
-    { field: 'id' },
-  ],
+query<Post>('post', (q) => {
+  q.select(['id', 'title']);
+
+  q.embed(
+    'users',
+    { as: 'authors', using: 'posts_author_id_fkey', join: 'inner' },
+    (author) => author.select(['id', 'name']),
+  );
+
+  q.embed('comments', (comments) => {
+    comments.selectAll();
+  });
 });
 ```
 
-Advanced PostgREST expressions remain available through an explicit raw clause:
+Once an embed is declared, root `*` is no longer implicit. An embed with no selection emits an
+empty embed such as `comments()`; call its `selectAll()` method for `comments(*)`. Aliases consumed
+by `SupabaseJsonApiHandler` must match the pluralized `sourceKey` (or relationship name) expected
+by the Warp Drive schema.
+
+Use `selectRaw()` for trusted JSON paths, spreads, computed relationships, and column expressions.
+Raw selections may be combined with either named fields or `selectAll()`.
+
+For relationships where every level should select `*`, use typed relationship paths instead of
+declaring each embed callback:
 
 ```ts
-query<Item>('item', {
-  order: [{ $raw: 'directors(last_name).desc' }],
+query<Post>('post', (q) => {
+  q.selectAll().embedAll(['authors', 'comments.authors']);
 });
 ```
+
+`embedAll()` merges shared prefixes, preserves path order, and deduplicates repeated paths. Use
+`embed()` when an alias, foreign-key hint, join mode, explicit field selection, filter, or order is
+needed. When no options are required, pass the callback directly as the second argument:
+
+```ts
+q.embed('comments', (comments) => {
+  comments.select(['id', 'body']);
+});
+```
+
+`findRecord()` uses the same selection and embed API while retaining singular Warp Drive request
+semantics. Its root builder intentionally omits `where()`, `orderBy()`, and `page()` because the
+record identifier already determines the root result. Embedded builders still support filtering
+and ordering their child rows.
 
 ## Filtering
 
-Filters use a compact object syntax. Fields and operators in the same object are combined with
-`AND`; use `$and`, `$or`, and `$not` for explicit nested logic.
+Each `where()` call appends predicates with implicit `AND` semantics. Use `and()`, `or()`, and
+`not()` for grouped logic. Optional predicates are ordinary conditional statements.
 
 ```ts
-query<Post>('post', {
-  filter: {
-    status: { eq: 'published' },
-    $or: [
-      { title: { ilike: '*search term*' } },
-      { body: { ilike: '*search term*' } },
-    ],
-  },
+query<Post>('post', (q) => {
+  q.where((filter) => {
+    filter.eq('status', 'published');
+    filter.or((either) => {
+      either.ilike('title', '*search term*');
+      either.ilike('body', '*search term*');
+    });
+  });
 });
 ```
 
-The object operators use PostgREST names directly. Supported operators include comparisons and
-patterns (`eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `ilike`, `match`, `imatch`), membership
-and null checks (`in`, `is`, `isdistinct`), full-text search (`fts`, `plfts`, `phfts`, `wfts`), and
-collection or range operators (`cs`, `cd`, `ov`, `sl`, `sr`, `nxr`, `nxl`, `adj`).
+The methods preserve PostgREST operator names, with `isDistinct()` as the JavaScript spelling for
+`isdistinct`. Supported methods are `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `ilike`,
+`match`, `imatch`, `in`, `is`, `isDistinct`, `fts`, `plfts`, `phfts`, `wfts`, `cs`, `cd`, `ov`,
+`sl`, `sr`, `nxr`, `nxl`, and `adj`.
 
-Use `any` or `all` modifiers without repeating a field:
+`eq`, `gt`, `gte`, `lt`, `lte`, `like`, `ilike`, `match`, and `imatch` accept
+`{ quantifier: 'any' | 'all' }`. Full-text methods accept `{ config: string }`:
 
 ```ts
-query<Person>('person', {
-  filter: {
-    last_name: { like: { any: ['O*', 'P*'] } },
-    username: { ilike: { all: ['user*', '*admin*'] } },
-  },
+query<Post>('post', (q) => {
+  q.where((filter) => {
+    filter.like('title', ['Warp*', 'Ember*'], { quantifier: 'any' });
+    filter.wfts('body', 'typed requests', { config: 'english' });
+  });
 });
 ```
 
-Full-text search accepts a query and an optional PostgreSQL text-search configuration:
+Pass the `EmbedRef` returned by `embed()` before the related field:
 
 ```ts
-query<Article>('article', {
-  filter: {
-    body: { wfts: { query: 'warp drive', config: 'english' } },
-  },
+query<Post>('post', (q) => {
+  const author = q.embed('users', { as: 'authors' });
+
+  q.where((filter) => {
+    filter.eq(author, 'active', true);
+  });
 });
 ```
 
-Properties set to `undefined` are omitted. Explicitly empty filters, predicates, logical groups,
-`in` lists, and `any`/`all` lists throw a `RangeError`. For JSON/composite paths, embedded aliases,
-resource-scoped groups, or future PostgREST syntax, use the raw field/value escape hatch:
+Every field operator supports the same form, including quantified and full-text filters:
 
 ```ts
-query<Person>('person', {
-  filter: {
-    $raw: { field: 'metadata->>blood_type', value: 'eq.A-' },
-  },
+filter.ilike(author, 'name', ['Ada*', 'Grace*'], {
+  quantifier: 'any',
+});
+filter.fts(author, 'biography', 'computer science', {
+  config: 'english',
 });
 ```
+
+Undefined operands, empty groups, and empty `in`, `any`, or `all` lists are rejected. Use
+`filter.raw(field, value)` for trusted JSON/composite paths or future PostgREST syntax.
+
+## Ordering
+
+Call `orderBy()` repeatedly to set priority. A field with no options uses PostgREST's default
+ascending order. Identical clauses are deduplicated without changing priority.
+
+```ts
+query<Post>('post', (q) => {
+  q.orderBy('created_at', { direction: 'desc', nulls: 'last' });
+  q.orderBy('id');
+});
+```
+
+An embedded builder orders its child rows. To order parent rows by a related column, pass a direct
+to-one `EmbedRef` to the root builder:
+
+```ts
+query<Post>('post', (q) => {
+  const author = q.embed('users', { as: 'authors' });
+
+  author.orderBy('name');
+  q.orderBy(author, 'name', { direction: 'asc' });
+});
+```
+
+Use `orderByRaw()` for trusted advanced expressions that are not modeled by the builder.
 
 ## Pagination
 
-Pass a one-based page number and page size to `query()`. The builder translates these values to
+Pass a one-based page number and page size to `q.page()`. The builder translates these values to
 PostgREST `limit` and `offset` parameters and requests an exact count by default.
 
 ```ts
 const { content: firstPage } = await store.request(
-  query<Post>('post', {
-    order: [{ field: 'created_at', direction: 'asc' }],
-    page: {
-      number: 1,
-      size: 20,
-    },
+  query<Post>('post', (q) => {
+    q.orderBy('created_at', { direction: 'asc' });
+    q.page({ number: 1, size: 20 });
   }),
 );
 
@@ -297,14 +357,14 @@ For large result sets, choose a faster PostgREST count strategy when an exact to
 the database cost:
 
 ```ts
-query<Post>('post', {
-  order: [{ field: 'created_at', direction: 'asc' }],
-  page: { size: 20, count: 'estimated' },
+query<Post>('post', (q) => {
+  q.orderBy('created_at', { direction: 'asc' });
+  q.page({ size: 20, count: 'estimated' });
 });
 ```
 
 Supported strategies are `exact`, `planned`, and `estimated`. Page sizes and numbers must be
-positive safe integers. Use a deterministic `order` whenever rows may be inserted, updated, or
+positive safe integers. Use deterministic `orderBy()` calls whenever rows may be inserted, updated, or
 deleted while a user moves between offset-based pages.
 
 ## Mutation Example
@@ -359,44 +419,62 @@ export default class PostEditor extends Component {
 
 ## TypeScript
 
-Use your Warp Drive resource type as the generic parameter for typed builders. Without additional
-database metadata, `query<T>()` narrows includes and fields from the resource type and infers likely
-Postgres order columns by underscoring its scalar field names.
-
-For exact database typing, associate the generated Supabase table definition with the Warp Drive
-resource through the exported `SupabaseTable` symbol:
+Use your Warp Drive resource type as the generic parameter for typed result documents. To also type
+the fluent database operations, associate a generated Supabase table with that resource through
+the exported `SupabaseTable` symbol and `SupabaseTableDefinition` helper:
 
 ```ts
 import { Type } from '@warp-drive/core/types/symbols';
 
-import { SupabaseTable } from 'warp-drive-supabase';
+import {
+  SupabaseTable,
+  type SupabaseTableDefinition,
+} from 'warp-drive-supabase';
 
 import type { Database } from './database.types';
 
-interface Item {
-  [Type]: 'item';
-  readonly [SupabaseTable]?: Database['public']['Tables']['items'];
+interface Post {
+  [Type]: 'post';
+  readonly [SupabaseTable]?: SupabaseTableDefinition<
+    Database,
+    'public',
+    'posts'
+  >;
 
   readonly id: string;
-  readonly createdAt: string;
+  readonly title: string;
 }
 ```
 
 The symbol property is optional and exists only for TypeScript; resource instances do not need to
-contain it. When the association is present, `query<Item>()` derives order fields from the exact
-keys of `Database['public']['Tables']['items']['Row']`. Those generated keys replace fallback
-guesses, so database-only columns are accepted while incorrect or camel-cased guesses are rejected.
+contain it. The association supplies the complete database, schema, and table context. `query<Post>()`
+and `findRecord<Post>()` then derive exact selections, related tables, foreign-key hints, related
+rows, and relationship cardinality from the generated `Row` and `Relationships` metadata. The
+collection builder additionally derives filter operands and order columns. Reverse relationships
+are discovered by scanning the same schema.
 
-Filters receive the same progressive enhancement: base fields and operator values come from the
-generated `Row`, while dotted relationship paths come from Warp Drive resource and collection
-properties. A related resource's own `SupabaseTable` association further refines the fields and
-values available beneath that path. Without generated metadata, filters fall back to underscored
-scalar Warp Drive fields.
+Without the association, the result remains typed as the Warp Drive resource, but fluent database
+fields and relationships accept arbitrary strings. The query API deliberately does not guess
+database names from Warp Drive schemas.
 
-The complete table definition is associated instead of only `Row`, retaining Supabase's `Insert`,
-`Update`, and `Relationships` metadata for additional progressive typing. Paginated query responses
-remain typed as Warp Drive reactive documents, and `findRecord<T>()` returns a single-resource
-document whose `data` is typed as `T`.
+The configure callback runs synchronously, exactly once, while `query()` constructs the request.
+This means tracked properties read inside a callback called from an Ember `@cached` getter are
+dependencies of that getter, and changing one invalidates the cached request:
+
+```ts
+@cached
+get postsRequest() {
+  return query<Post>('post', (q) => {
+    if (this.status) {
+      q.where((filter) => filter.eq('status', this.status));
+    }
+  });
+}
+```
+
+Configure, embed, and filter callbacks must be synchronous and return `void`. Paginated query
+responses remain typed as Warp Drive reactive documents, while `findRecord<T>()` returns a
+single-resource document whose `data` is typed as `T`.
 
 ## Naming Assumptions
 

@@ -24,8 +24,8 @@ export default class PostsPostTemplate extends Component<Signature> {
   @cached
   get postRequest() {
     return this.store.request(
-      findRecord<Post>('post', this.args.model, {
-        include: ['author', 'comments.author'],
+      findRecord<Post>('post', this.args.model, (q) => {
+        q.selectAll().embedAll(['authors', 'comments.authors']);
       }),
     );
   }

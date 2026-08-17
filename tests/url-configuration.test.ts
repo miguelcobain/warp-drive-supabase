@@ -35,7 +35,7 @@ describe('global URL configuration', () => {
 
   it('applies the configured host and namespace to queries', () => {
     expect(query('post').url).toBe(
-      'https://example.supabase.co/rest/v1/posts?select=*'
+      'https://example.supabase.co/rest/v1/posts?select=*',
     );
   });
 
@@ -43,20 +43,20 @@ describe('global URL configuration', () => {
     const request = findRecord('post', '42');
 
     expect(request.url).toBe(
-      'https://example.supabase.co/rest/v1/posts?id=eq.42&select=*'
+      'https://example.supabase.co/rest/v1/posts?id=eq.42&select=*',
     );
     expect(new URL(request.url).pathname).not.toContain('/posts/42');
   });
 
   it('applies the configured host and namespace to mutations', () => {
     expect(createRecord({}).url).toBe(
-      'https://example.supabase.co/rest/v1/posts?select=*'
+      'https://example.supabase.co/rest/v1/posts?select=*',
     );
     expect(updateRecord({}).url).toBe(
-      'https://example.supabase.co/rest/v1/posts?id=eq.42&select=*'
+      'https://example.supabase.co/rest/v1/posts?id=eq.42&select=*',
     );
     expect(deleteRecord({}).url).toBe(
-      'https://example.supabase.co/rest/v1/posts?id=eq.42'
+      'https://example.supabase.co/rest/v1/posts?id=eq.42',
     );
   });
 
@@ -67,20 +67,20 @@ describe('global URL configuration', () => {
       resourcePath: 'articles',
     };
 
-    expect(query('post', overrides).url).toBe(
-      'https://override.example.com/api/v2/articles?select=*'
+    expect(query('post', undefined, overrides).url).toBe(
+      'https://override.example.com/api/v2/articles?select=*',
     );
-    expect(findRecord('post', '42', overrides).url).toBe(
-      'https://override.example.com/api/v2/articles?id=eq.42&select=*'
+    expect(findRecord('post', '42', undefined, overrides).url).toBe(
+      'https://override.example.com/api/v2/articles?id=eq.42&select=*',
     );
     expect(createRecord({}, overrides).url).toBe(
-      'https://override.example.com/api/v2/articles?select=*'
+      'https://override.example.com/api/v2/articles?select=*',
     );
     expect(updateRecord({}, overrides).url).toBe(
-      'https://override.example.com/api/v2/articles?id=eq.42&select=*'
+      'https://override.example.com/api/v2/articles?id=eq.42&select=*',
     );
     expect(deleteRecord({}, overrides).url).toBe(
-      'https://override.example.com/api/v2/articles?id=eq.42'
+      'https://override.example.com/api/v2/articles?id=eq.42',
     );
   });
 });

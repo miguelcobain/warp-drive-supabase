@@ -30,13 +30,17 @@ const requestManager = new RequestManager().use([
 ]);
 
 store.request(
-  query('post', {
-    include: ['comments.author', 'author'],
-    order: [{ field: 'created_at', direction: 'desc' }],
-    page: { size: 20 },
+  query('post', (q) => {
+    q.selectAll().embedAll(['authors', 'comments.authors']);
+    q.orderBy('created_at', { direction: 'desc' });
+    q.page({ size: 20 });
   }),
 );
 
-store.request(findRecord('user', '1', { include: ['role'] }));
+store.request(
+  findRecord('user', '1', (q) => {
+    q.selectAll().embedAll(['roles']);
+  }),
+);
 store.request(createRecord(draftPost));
 store.request(updateRecord(post));

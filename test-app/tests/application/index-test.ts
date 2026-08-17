@@ -114,9 +114,9 @@ module('Application | index', function (hooks) {
 
     const store = this.owner.lookup('service:store') as Store;
     const firstResponse = await store.request(
-      query<Post>('post', {
-        order: [{ field: 'created_at', direction: 'asc' }],
-        page: { size: 1 },
+      query<Post>('post', (q) => {
+        q.orderBy('created_at', { direction: 'asc' });
+        q.page({ size: 1 });
       }),
     );
     const firstPage = firstResponse.content;

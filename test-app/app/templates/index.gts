@@ -18,9 +18,9 @@ export default class IndexTemplate extends Component {
   @cached
   get postsRequest() {
     return this.store.request(
-      query<Post>('post', {
-        include: ['author', 'comments.author'],
-        order: [{ field: 'created_at', direction: 'asc' }],
+      query<Post>('post', (q) => {
+        q.selectAll().embedAll(['authors', 'comments.authors']);
+        q.orderBy('created_at', { direction: 'asc' });
       }),
     );
   }
