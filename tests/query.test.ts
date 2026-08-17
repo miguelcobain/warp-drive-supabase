@@ -89,7 +89,127 @@ interface UnassociatedPost {
   createdAt: string;
 }
 
+interface User {
+  [Type]: 'user';
+  id: string;
+}
+
 describe('fluent query builder', () => {
+  it('serializes UUID equality without literal double quotes', () => {
+    const request = query<User>('user', (user) => {
+      user.where((filter) => {
+        filter.eq(
+          'auth_user_id',
+          '11111111-1111-4111-8111-111111111111',
+        );
+      });
+    });
+
+    expect(request.url).toBe(
+      '/users?select=*&auth_user_id=eq.11111111-1111-4111-8111-111111111111',
+    );
+  });
+
+  it('preserves scalar text exactly without adding delimiter quotes', () => {
+    const request = query<User>('user', (user) => {
+      user.where((filter) => {
+        filter.eq('name', 'Ada Lovelace');
+        filter.eq(
+          'punctuation',
+          'comma, parentheses() quote" backslash\\',
+        );
+        filter.neq('legacy_name', 'Grace Hopper');
+      });
+    });
+    const url = new URL(request.url, 'https://example.test');
+
+    expect(url.searchParams.get('name')).toBe('eq.Ada Lovelace');
+    expect(url.searchParams.get('punctuation')).toBe(
+      'eq.comma, parentheses() quote" backslash\\',
+    );
+    expect(url.searchParams.get('legacy_name')).toBe('neq.Grace Hopper');
+  });
+
+  it('serializes Date equality and comparisons as unquoted ISO values', () => {
+    const date = new Date('2026-08-17T12:34:56.789Z');
+    const request = query<User>('user', (user) => {
+      user.where((filter) => {
+        filter.eq('created_at', date);
+        filter.gt('updated_at', date);
+        filter.gte('published_at', date);
+        filter.lt('archived_at', date);
+        filter.lte('deleted_at', date);
+      });
+    });
+    const url = new URL(request.url, 'https://example.test');
+
+    expect(url.searchParams.get('created_at')).toBe(
+      'eq.2026-08-17T12:34:56.789Z',
+    );
+    expect(url.searchParams.get('updated_at')).toBe(
+      'gt.2026-08-17T12:34:56.789Z',
+    );
+    expect(url.searchParams.get('published_at')).toBe(
+      'gte.2026-08-17T12:34:56.789Z',
+    );
+    expect(url.searchParams.get('archived_at')).toBe(
+      'lt.2026-08-17T12:34:56.789Z',
+    );
+    expect(url.searchParams.get('deleted_at')).toBe(
+      'lte.2026-08-17T12:34:56.789Z',
+    );
+  });
+
+  it('quotes and escapes values in lists, quantified filters, and collections', () => {
+    const request = query<User>('user', (user) => {
+      user.where((filter) => {
+        filter.in('name', [
+          'plain',
+          'with space',
+          'comma,value',
+          '(parentheses)',
+          'double"quote',
+          'back\\slash',
+        ]);
+        filter.eq('nickname', ['comma,value', 'double"quote', 'back\\slash'], {
+          quantifier: 'any',
+        });
+        filter.cs('tags', ['comma,value', 'double"quote', 'back\\slash']);
+      });
+    });
+    const url = new URL(request.url, 'https://example.test');
+
+    expect(url.searchParams.get('name')).toBe(
+      'in.("plain","with space","comma,value","(parentheses)","double\\"quote","back\\\\slash")',
+    );
+    expect(url.searchParams.get('nickname')).toBe(
+      'eq(any).{"comma,value","double\\"quote","back\\\\slash"}',
+    );
+    expect(url.searchParams.get('tags')).toBe(
+      'cs.{"comma,value","double\\"quote","back\\\\slash"}',
+    );
+  });
+
+  it('quotes values inside or and nested logical groups', () => {
+    const request = query<User>('user', (user) => {
+      user.where((filter) => {
+        filter.or((either) => {
+          either.eq('name', 'Ada Lovelace');
+          either.eq('name', 'comma,(parentheses) "quote" \\slash');
+          either.and((both) => {
+            both.neq('status', 'draft');
+            both.gte('created_at', new Date('2026-08-17T00:00:00.000Z'));
+          });
+        });
+      });
+    });
+    const url = new URL(request.url, 'https://example.test');
+
+    expect(url.searchParams.get('or')).toBe(
+      '(name.eq."Ada Lovelace",name.eq."comma,(parentheses) \\"quote\\" \\\\slash",and(status.neq."draft",created_at.gte."2026-08-17T00:00:00.000Z"))',
+    );
+  });
+
   it('defaults to selecting every root field', () => {
     const request = query<Post>('post');
     const url = new URL(request.url, 'https://example.test');
@@ -136,7 +256,7 @@ describe('fluent query builder', () => {
     expect(url.searchParams.get('select')).toBe(
       'id,title,status,authors:users!posts_author_id_fkey!inner(id,name)',
     );
-    expect(url.searchParams.get('status')).toBe('eq."published"');
+    expect(url.searchParams.get('status')).toBe('eq.published');
     expect(url.searchParams.get('or')).toBe(
       '(title.ilike."*search*",authors.name.ilike."*search*")',
     );
@@ -229,7 +349,7 @@ describe('fluent query builder', () => {
       'authors:users!posts_author_id_fkey(id,name),comments(*,commenters:users(id,name))',
     );
     expect(url.searchParams.get('authors.active')).toBe('eq.true');
-    expect(url.searchParams.get('authors.name')).toBe('ilike."A*"');
+    expect(url.searchParams.get('authors.name')).toBe('ilike.A*');
     expect(url.searchParams.get('authors.order')).toBe('name');
     expect(url.searchParams.get('order')).toBe('authors(created_at).desc');
   });
@@ -310,7 +430,36 @@ describe('fluent query builder', () => {
       'lt.100',
       'lte.90',
     ]);
-    expect(url.searchParams.getAll('body')).toContain('fts(english)."warp"');
+    expect(url.searchParams.getAll('status')).toEqual([
+      'neq.draft',
+      'in.("draft","published")',
+    ]);
+    expect(url.searchParams.get('active')).toBe('is.true');
+    expect(url.searchParams.get('metadata')).toBe('isdistinct.null');
+    expect(url.searchParams.getAll('title')).toEqual([
+      'like.Warp*',
+      'match.^Warp',
+    ]);
+    expect(url.searchParams.getAll('body')).toEqual([
+      'ilike(all).{"*ember*","*warp*"}',
+      'imatch.drive$',
+      'fts(english).warp',
+      'plfts.warp drive',
+      'phfts.warp drive',
+      'wfts.warp -speed',
+    ]);
+    expect(url.searchParams.getAll('tags')).toEqual([
+      'cs.{"ember"}',
+      'cd.{"ember","warp"}',
+      'ov.{"warp"}',
+    ]);
+    expect(url.searchParams.getAll('created_at')).toEqual([
+      'sl.2027-01-01',
+      'sr.2025-01-01',
+      'nxr.2026-01-01',
+      'nxl.2026-01-01',
+      'adj.2026-01-01',
+    ]);
     expect(url.searchParams.get('not.and')).toBe('(status.eq."draft")');
     expect(url.searchParams.get('metadata->>priority')).toBe('eq.high');
   });
@@ -338,15 +487,15 @@ describe('fluent query builder', () => {
     const url = new URL(request.url, 'https://example.test');
 
     expect(url.searchParams.getAll('authors.name')).toEqual([
-      'eq."Ada"',
+      'eq.Ada',
       'eq(any).{"Ada","Grace"}',
       'ilike(any).{"A*","G*"}',
       'in.("Ada","Grace")',
-      'isdistinct."Grace"',
+      'isdistinct.Grace',
     ]);
     expect(url.searchParams.get('authors.active')).toBe('neq.false');
     expect(url.searchParams.get('authors.biography')).toBe(
-      'fts(english)."computer science"',
+      'fts(english).computer science',
     );
     expect(url.searchParams.get('authors.tags')).toBe('cs.{"engineering"}');
     expect(url.searchParams.get('authors.metadata->>priority')).toBe('eq.high');

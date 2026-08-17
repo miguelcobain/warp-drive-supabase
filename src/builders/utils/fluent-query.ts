@@ -543,6 +543,8 @@ type FilterNode =
   | { kind: 'existence'; field: string; exists: boolean }
   | { kind: 'raw'; field: string; value: string };
 
+type FilterValueContext = 'scalar' | 'delimited';
+
 type OrderNode =
   | { kind: 'field'; field: string; options?: OrderOptions }
   | {
@@ -1414,7 +1416,10 @@ function appendRootFilter(
 ): void {
   const prefix = scope ? `${scope}.` : '';
   if (node.kind === 'predicate') {
-    searchParams.append(`${prefix}${node.field}`, serializePredicate(node));
+    searchParams.append(
+      `${prefix}${node.field}`,
+      serializePredicate(node, 'scalar'),
+    );
   } else if (node.kind === 'existence') {
     searchParams.append(
       `${prefix}${node.field}`,
@@ -1433,7 +1438,7 @@ function appendRootFilter(
 
 function serializeFilterTerm(node: FilterNode): string {
   if (node.kind === 'predicate') {
-    return `${node.field}.${serializePredicate(node)}`;
+    return `${node.field}.${serializePredicate(node, 'delimited')}`;
   }
   if (node.kind === 'existence') {
     return `${node.field}.${node.exists ? 'not.is.null' : 'is.null'}`;
@@ -1447,6 +1452,7 @@ function serializeFilterTerm(node: FilterNode): string {
 
 function serializePredicate(
   node: Extract<FilterNode, { kind: 'predicate' }>,
+  context: FilterValueContext,
 ): string {
   const operator = node.config
     ? `${node.operator}(${validateFullTextConfig(node.config)})`
@@ -1469,7 +1475,7 @@ function serializePredicate(
   ) {
     return `${operator}.${serializeCollectionValue(node.value)}`;
   }
-  return `${operator}.${serializeValue(node.value)}`;
+  return `${operator}.${serializeValue(node.value, context)}`;
 }
 
 function serializeOrders(orders: OrderNode[]): string {
@@ -1497,13 +1503,16 @@ function serializeOrders(orders: OrderNode[]): string {
 
 function serializeList(value: unknown, open: string, close: string): string {
   assertNonEmptyArray(value, 'filter list');
-  return `${open}${value.map(serializeValue).join(',')}${close}`;
+  const items = value.map((item) => serializeValue(item, 'delimited'));
+  return `${open}${items.join(',')}${close}`;
 }
 
 function serializeCollectionValue(value: unknown): string {
-  return Array.isArray(value)
-    ? `{${value.map(serializeValue).join(',')}}`
-    : serializeValue(value);
+  if (Array.isArray(value)) {
+    const items = value.map((item) => serializeValue(item, 'delimited'));
+    return `{${items.join(',')}}`;
+  }
+  return serializeValue(value, 'delimited');
 }
 
 function serializeIsValue(value: unknown): string {
@@ -1518,9 +1527,12 @@ function serializeIsValue(value: unknown): string {
   throw new TypeError('is() received an invalid value.');
 }
 
-function serializeValue(value: unknown): string {
+function serializeValue(
+  value: unknown,
+  context: FilterValueContext,
+): string {
   if (typeof value === 'string') {
-    return quotePostgrestValue(value);
+    return context === 'delimited' ? quotePostgrestValue(value) : value;
   }
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) {
@@ -1535,12 +1547,17 @@ function serializeValue(value: unknown): string {
     return 'null';
   }
   if (value instanceof Date) {
-    return quotePostgrestValue(value.toISOString());
+    const serialized = value.toISOString();
+    return context === 'delimited'
+      ? quotePostgrestValue(serialized)
+      : serialized;
   }
   if (typeof value === 'object' && value !== null) {
     const serialized = JSON.stringify(value);
     if (serialized !== undefined) {
-      return quotePostgrestValue(serialized);
+      return context === 'delimited'
+        ? quotePostgrestValue(serialized)
+        : serialized;
     }
   }
   throw new TypeError('PostgREST filter values must be serializable.');

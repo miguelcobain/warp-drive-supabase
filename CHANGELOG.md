@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-08-17
+
+### Fixed
+
+- Fixed scalar PostgREST filters adding literal double quotes around string and `Date` operands,
+  which caused values such as UUIDs to fail PostgreSQL casts with `22P02`.
+
+### Changed
+
+- Filter values are now serialized according to their grammar context. Direct scalar operands are
+  sent without surrounding quotes, while lists, quantified filters, collections, and logical
+  expressions retain PostgREST quoting and backslash escaping.
+
 ## [0.7.1] - 2026-08-17
 
 ### Added
