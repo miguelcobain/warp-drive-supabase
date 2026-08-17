@@ -1,4 +1,4 @@
-import { query } from '../src/builders/query';
+import { query, SupabaseTable } from '../src/builders';
 import type { Type } from '@warp-drive/core/types/symbols';
 
 interface AuthorRecord {
@@ -23,11 +23,40 @@ interface PostRecord {
   comments: CommentRecord[];
 }
 
+interface PostTableDefinition {
+  Row: {
+    id: string;
+    title: string;
+    published_at: string;
+    metadata: { priority: number } | null;
+  };
+  Insert: {
+    id?: string;
+    title: string;
+    published_at: string;
+    metadata?: { priority: number } | null;
+  };
+  Update: {
+    title?: string;
+    published_at?: string;
+    metadata?: { priority: number } | null;
+  };
+  Relationships: [];
+}
+
+interface AssociatedPostRecord {
+  [Type]: 'post';
+  readonly [SupabaseTable]?: PostTableDefinition;
+  id: string;
+  title: string;
+  createdAt: string;
+}
+
 describe('query builder', () => {
   it('builds a stable read request', () => {
     const request = query('post', {
       include: ['comments', 'author'],
-      order: ['start_date.asc'],
+      order: [{ field: 'start_date', direction: 'asc' }],
       filter: {
         date: 'gte.2023-10-01T00:00:00Z',
         status: ['eq.published', 'neq.archived'],
@@ -61,7 +90,10 @@ describe('query builder', () => {
   it('accepts typed field and order names for scalar fields', () => {
     const request = query<PostRecord>('post', {
       fields: ['created_at', 'title'],
-      order: ['created_at.asc', 'title.desc'],
+      order: [
+        { field: 'created_at', direction: 'asc' },
+        { field: 'title', direction: 'desc' },
+      ],
     });
     const url = new URL(request.url, 'https://example.test');
 
@@ -71,7 +103,7 @@ describe('query builder', () => {
 
   it('translates Warp Drive page numbers to PostgREST limit and offset', () => {
     const request = query('post', {
-      order: ['created_at.asc'],
+      order: [{ field: 'created_at', direction: 'asc' }],
       filter: { limit: '999', offset: '999' },
       page: { size: 25, number: 3 },
     });
@@ -119,11 +151,70 @@ describe('query builder', () => {
     void query<PostRecord>('post', { fields: ['comments'] });
 
     // @ts-expect-error relation fields are not valid scalar order clauses
-    void query<PostRecord>('post', { order: ['author.asc'] });
+    void query<PostRecord>('post', { order: [{ field: 'author' }] });
 
     // @ts-expect-error arbitrary field names are not allowed for typed queries
     void query<PostRecord>('post', { fields: ['published_at'] });
 
     expect(true).toBe(true);
+  });
+
+  it('progressively enhances order fields from attached Supabase metadata', () => {
+    const request = query<AssociatedPostRecord>('post', {
+      order: [
+        { field: 'published_at', direction: 'desc', nulls: 'last' },
+        { field: 'metadata' },
+        { $raw: 'directors(last_name).desc' },
+      ],
+    });
+
+    const url = new URL(request.url, 'https://example.test');
+    expect(url.searchParams.get('order')).toBe(
+      'published_at.desc.nullslast,metadata,directors(last_name).desc',
+    );
+
+    if (false) {
+      void query<AssociatedPostRecord>('post', {
+        // @ts-expect-error attached Row keys replace fallback Warp Drive guesses
+        order: [{ field: 'created_at' }],
+      });
+
+      void query<AssociatedPostRecord>('post', {
+        // @ts-expect-error unknown fields are rejected for associated records
+        order: [{ field: 'missing' }],
+      });
+
+      // @ts-expect-error legacy string clauses are no longer accepted
+      void query<AssociatedPostRecord>('post', { order: ['title.asc'] });
+
+      void query<AssociatedPostRecord>('post', {
+        // @ts-expect-error directions are limited to PostgREST values
+        order: [{ field: 'title', direction: 'ascending' }],
+      });
+
+      void query<AssociatedPostRecord>('post', {
+        // @ts-expect-error null placement uses first or last
+        order: [{ field: 'title', nulls: 'middle' }],
+      });
+
+      void query<AssociatedPostRecord>('post', {
+        // @ts-expect-error structured clauses require a field or $raw
+        order: [{ direction: 'asc' }],
+      });
+
+      void query<AssociatedPostRecord>('post', {
+        // @ts-expect-error raw and structured order clauses are mutually exclusive
+        order: [{ field: 'title', $raw: 'title.desc' }],
+      });
+    }
+  });
+
+  it('allows arbitrary structured order fields for untyped queries', () => {
+    const request = query('post', {
+      order: [{ field: 'custom_database_column', direction: 'desc' }],
+    });
+
+    const url = new URL(request.url, 'https://example.test');
+    expect(url.searchParams.get('order')).toBe('custom_database_column.desc');
   });
 });

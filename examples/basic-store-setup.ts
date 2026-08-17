@@ -32,7 +32,7 @@ const requestManager = new RequestManager().use([
 store.request(
   query('post', {
     include: ['comments.author', 'author'],
-    order: ['created_at.desc'],
+    order: [{ field: 'created_at', direction: 'desc' }],
     page: { size: 20 },
   }),
 );

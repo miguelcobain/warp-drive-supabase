@@ -12,7 +12,9 @@ import type { ReactiveDataDocument } from '@warp-drive/core/reactive';
 import {
   serializePostgrestSelect,
   serializePostgrestOrder,
+  type OrderClause,
 } from './utils/query-params';
+import { SupabaseTable } from './supabase-table';
 import { pluralizeType, underscore } from '../utils/string';
 import { buildQueryParams } from '../utils/url';
 import { buildPostgrestBaseURL } from './utils/url-options';
@@ -23,16 +25,6 @@ import {
   type PostgrestCountMode,
   type PostgrestPaginationRequestOptions,
 } from '../pagination';
-
-type Direction = 'asc' | 'desc';
-type Nulls = 'nullsfirst' | 'nullslast';
-
-type OrderSuffix = `${Direction}` | `${Nulls}` | `${Direction}.${Nulls}`;
-
-type UntypedOrderString =
-  | `${string}.${Direction}`
-  | `${string}.${Nulls}`
-  | `${string}.${Direction}.${Nulls}`;
 
 type Filters = Record<string, string | Array<string>>;
 
@@ -57,16 +49,33 @@ type QueryableFieldName<T extends TypedRecordInstance> =
   | QueryableFieldKey<T>
   | SnakeCase<QueryableFieldKey<T>>;
 
-type TypedOrderString<T extends TypedRecordInstance> =
-  `${QueryableFieldName<T>}.${OrderSuffix}`;
+type ValueAt<T, K extends PropertyKey> = K extends keyof T ? T[K] : never;
+
+type SupabaseDefinition<T> = ValueAt<T, typeof SupabaseTable>;
+
+type SupabaseRow<T> = [SupabaseDefinition<T>] extends [never]
+  ? never
+  : NonNullable<SupabaseDefinition<T>> extends { Row: infer Row }
+    ? Row
+    : never;
+
+type BestGuessOrderField<T extends TypedRecordInstance> = SnakeCase<
+  QueryableFieldKey<T>
+>;
+
+export type OrderField<T extends TypedRecordInstance> = [
+  SupabaseRow<T>,
+] extends [never]
+  ? BestGuessOrderField<T>
+  : Extract<keyof SupabaseRow<T>, string>;
 
 export interface QueryOptions<T = unknown> extends ConstrainedRequestOptions {
   include?: T extends TypedRecordInstance
     ? Includes<T> | Includes<T>[]
     : string | string[];
   order?: T extends TypedRecordInstance
-    ? TypedOrderString<T>[]
-    : UntypedOrderString[];
+    ? OrderClause<OrderField<T>>[]
+    : OrderClause[];
   fields?: T extends TypedRecordInstance ? QueryableFieldName<T>[] : string[];
   filter?: Filters;
   page?: PageOptions;
@@ -155,7 +164,7 @@ function assertPositiveSafeInteger(value: number, name: string): void {
   }
 }
 
-export type { PageOptions, PostgrestCountMode };
+export type { OrderClause, PageOptions, PostgrestCountMode };
 
 function appendQueryParams(
   params: Filters = {},

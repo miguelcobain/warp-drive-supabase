@@ -20,7 +20,7 @@ export default class IndexTemplate extends Component {
     return this.store.request(
       query<Post>('post', {
         include: ['author', 'comments.author'],
-        order: ['created_at.asc'],
+        order: [{ field: 'created_at', direction: 'asc' }],
       }),
     );
   }

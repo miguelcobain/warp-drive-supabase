@@ -143,7 +143,7 @@ export default class PostsPage extends Component {
     return this.store.request(
       query<Post>('post', {
         include: ['author', 'comments.author'],
-        order: ['created_at.asc'],
+        order: [{ field: 'created_at', direction: 'asc' }],
         page: { size: 20 },
       }),
     );
@@ -186,6 +186,28 @@ const postRequest = store.request(
 );
 ```
 
+## Ordering
+
+Order clauses use structured objects. `direction` may be `asc` or `desc`, and `nulls` may be
+`first` or `last`. A bare field uses PostgREST's default ascending order.
+
+```ts
+query<Post>('post', {
+  order: [
+    { field: 'created_at', direction: 'desc', nulls: 'last' },
+    { field: 'id' },
+  ],
+});
+```
+
+Advanced PostgREST expressions remain available through an explicit raw clause:
+
+```ts
+query<Project>('project', {
+  order: [{ $raw: 'directors(last_name).desc' }],
+});
+```
+
 ## Pagination
 
 Pass a one-based page number and page size to `query()`. The builder translates these values to
@@ -194,7 +216,7 @@ PostgREST `limit` and `offset` parameters and requests an exact count by default
 ```ts
 const { content: firstPage } = await store.request(
   query<Post>('post', {
-    order: ['created_at.asc'],
+    order: [{ field: 'created_at', direction: 'asc' }],
     page: {
       number: 1,
       size: 20,
@@ -221,7 +243,7 @@ the database cost:
 
 ```ts
 query<Post>('post', {
-  order: ['created_at.asc'],
+  order: [{ field: 'created_at', direction: 'asc' }],
   page: { size: 20, count: 'estimated' },
 });
 ```
@@ -280,15 +302,40 @@ export default class PostEditor extends Component {
 
 `SupabaseUpdatesHandler` serializes changed attributes using schema `sourceKey` values when available, and falls back to underscored field names otherwise.
 
-## Type Notes
+## TypeScript
 
-- For typed builders, use your actual Warp Drive resource type as the generic parameter.
-- `query<T>()` narrows:
-  - `include` to valid include paths from `T`
-  - `fields` to scalar fields on `T`
-  - `order` to scalar fields on `T` plus valid PostgREST order suffixes
-  - paginated store responses to Warp Drive reactive documents with navigation methods
-- `findRecord<T>()` returns a single-resource document whose `data` is typed as `T`.
+Use your Warp Drive resource type as the generic parameter for typed builders. Without additional
+database metadata, `query<T>()` narrows includes and fields from the resource type and infers likely
+Postgres order columns by underscoring its scalar field names.
+
+For exact database typing, associate the generated Supabase table definition with the Warp Drive
+resource through the exported `SupabaseTable` symbol:
+
+```ts
+import { Type } from '@warp-drive/core/types/symbols';
+
+import { SupabaseTable } from 'warp-drive-supabase';
+
+import type { Database } from './database.types';
+
+interface Project {
+  [Type]: 'project';
+  readonly [SupabaseTable]?: Database['public']['Tables']['projects'];
+
+  readonly id: string;
+  readonly createdAt: string;
+}
+```
+
+The symbol property is optional and exists only for TypeScript; resource instances do not need to
+contain it. When the association is present, `query<Project>()` derives order fields from the exact
+keys of `Database['public']['Tables']['projects']['Row']`. Those generated keys replace fallback
+guesses, so database-only columns are accepted while incorrect or camel-cased guesses are rejected.
+
+The complete table definition is associated instead of only `Row`, retaining Supabase's `Insert`,
+`Update`, and `Relationships` metadata for additional progressive typing. Paginated query responses
+remain typed as Warp Drive reactive documents, and `findRecord<T>()` returns a single-resource
+document whose `data` is typed as `T`.
 
 ## Naming Assumptions
 

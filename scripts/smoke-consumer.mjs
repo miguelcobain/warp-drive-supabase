@@ -60,13 +60,17 @@ writeFileSync(
   resolve(consumerDir, 'index.ts'),
   [
     "import { setBuildURLConfig } from '@warp-drive/utilities';",
-    "import { query, findRecord, createRecord, updateRecord, SupabaseJsonApiHandler, SupabaseUpdatesHandler, createSupabaseAuthHandler } from 'warp-drive-supabase';",
-    "import type { PageOptions, PostgrestCountMode } from 'warp-drive-supabase';",
+    "import { Type } from '@warp-drive/core/types/symbols';",
+    "import { query, findRecord, createRecord, updateRecord, SupabaseTable, SupabaseJsonApiHandler, SupabaseUpdatesHandler, createSupabaseAuthHandler } from 'warp-drive-supabase';",
+    "import type { OrderField, PageOptions, PostgrestCountMode } from 'warp-drive-supabase';",
     '',
     "setBuildURLConfig({ host: 'https://example.supabase.co', namespace: 'rest/v1' });",
     '',
+    'interface PostTable { Row: { id: string; created_at: string }; Insert: {}; Update: {}; Relationships: [] }',
+    "interface Post { [Type]: 'post'; readonly [SupabaseTable]?: PostTable; id: string; createdAt: string }",
+    "const orderField: OrderField<Post> = 'created_at';",
     "const page: PageOptions = { size: 20, count: 'exact' satisfies PostgrestCountMode };",
-    "const queryRequest = query('post', { page });",
+    "const queryRequest = query<Post>('post', { order: [{ field: orderField, direction: 'desc' }], page });",
     "const recordRequest = findRecord('user', '1');",
     "const authHandler = createSupabaseAuthHandler({ apiKey: 'anon-key' });",
     'declare const post: unknown;',
@@ -81,6 +85,7 @@ writeFileSync(
     'void updateRequest;',
     'void SupabaseJsonApiHandler;',
     'void SupabaseUpdatesHandler;',
+    'void SupabaseTable;',
   ].join('\n'),
 );
 

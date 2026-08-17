@@ -1,5 +1,26 @@
 import { pluralizeType, underscore } from '../../utils/string';
 
+export type OrderDirection = 'asc' | 'desc';
+export type OrderNulls = 'first' | 'last';
+
+export interface FieldOrderClause<Field extends string = string> {
+  field: Field;
+  direction?: OrderDirection;
+  nulls?: OrderNulls;
+  $raw?: never;
+}
+
+export interface RawOrderClause {
+  $raw: string;
+  field?: never;
+  direction?: never;
+  nulls?: never;
+}
+
+export type OrderClause<Field extends string = string> =
+  | FieldOrderClause<Field>
+  | RawOrderClause;
+
 type IncludeNode = Map<string, IncludeNode>;
 
 function normalizeValues(values: string | string[] | undefined): string[] {
@@ -29,7 +50,10 @@ function addIncludePath(tree: IncludeNode, path: string): void {
   }
 }
 
-function serializeIncludeBranch([name, children]: [string, IncludeNode]): string {
+function serializeIncludeBranch([name, children]: [
+  string,
+  IncludeNode,
+]): string {
   const nested = Array.from(children.entries())
     .sort(([left], [right]) => left.localeCompare(right))
     .map((entry) => serializeIncludeBranch(entry))
@@ -53,7 +77,7 @@ export function serializeIncludes(paths: string | string[] = []): string[] {
 
 export function serializePostgrestSelect(
   includes: string | string[] = [],
-  fields: string | string[] = []
+  fields: string | string[] = [],
 ): string {
   const serializedFields = serializePostgrestFields(normalizeValues(fields));
   const serializedIncludes = serializeIncludes(includes);
@@ -62,10 +86,24 @@ export function serializePostgrestSelect(
   return [...segments, ...serializedIncludes].join(',');
 }
 
-export function serializePostgrestOrder(orders: string[] = []): string {
-  return [...new Set(normalizeValues(orders))].join(',');
+export function serializePostgrestOrder(orders: OrderClause[] = []): string {
+  return [...new Set(orders.map(serializeOrderClause))].join(',');
 }
 
 export function serializePostgrestFields(fields: string[] = []): string {
   return [...new Set(normalizeValues(fields))].sort().join(',');
+}
+
+function serializeOrderClause(order: OrderClause): string {
+  if ('$raw' in order) {
+    return order.$raw;
+  }
+
+  return [
+    order.field,
+    order.direction,
+    order.nulls ? `nulls${order.nulls}` : undefined,
+  ]
+    .filter((segment): segment is string => Boolean(segment))
+    .join('.');
 }
