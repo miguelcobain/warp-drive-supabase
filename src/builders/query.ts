@@ -14,7 +14,14 @@ import {
   serializePostgrestOrder,
   type OrderClause,
 } from './utils/query-params';
-import { SupabaseTable } from './supabase-table';
+import {
+  appendPostgrestFilter,
+  type Filter,
+  type FilterExpression,
+  type FilterField,
+  type RawFilter,
+} from './utils/filter';
+import type { SupabaseRow } from './supabase-table';
 import { pluralizeType, underscore } from '../utils/string';
 import { buildQueryParams } from '../utils/url';
 import { buildPostgrestBaseURL } from './utils/url-options';
@@ -25,8 +32,6 @@ import {
   type PostgrestCountMode,
   type PostgrestPaginationRequestOptions,
 } from '../pagination';
-
-type Filters = Record<string, string | Array<string>>;
 
 type ScalarFieldValue = string | number | boolean | bigint | null | undefined;
 
@@ -49,16 +54,6 @@ type QueryableFieldName<T extends TypedRecordInstance> =
   | QueryableFieldKey<T>
   | SnakeCase<QueryableFieldKey<T>>;
 
-type ValueAt<T, K extends PropertyKey> = K extends keyof T ? T[K] : never;
-
-type SupabaseDefinition<T> = ValueAt<T, typeof SupabaseTable>;
-
-type SupabaseRow<T> = [SupabaseDefinition<T>] extends [never]
-  ? never
-  : NonNullable<SupabaseDefinition<T>> extends { Row: infer Row }
-    ? Row
-    : never;
-
 type BestGuessOrderField<T extends TypedRecordInstance> = SnakeCase<
   QueryableFieldKey<T>
 >;
@@ -77,7 +72,7 @@ export interface QueryOptions<T = unknown> extends ConstrainedRequestOptions {
     ? OrderClause<OrderField<T>>[]
     : OrderClause[];
   fields?: T extends TypedRecordInstance ? QueryableFieldName<T>[] : string[];
-  filter?: Filters;
+  filter?: Filter<T>;
   page?: PageOptions;
 }
 
@@ -116,7 +111,9 @@ export function query(
   if (options.order) {
     queryParams.append('order', serializePostgrestOrder(options.order));
   }
-  appendQueryParams(options.filter, queryParams);
+  if (options.filter) {
+    appendPostgrestFilter(options.filter, queryParams);
+  }
 
   let pagination: PostgrestPaginationRequestOptions | undefined;
   if (options.page) {
@@ -164,19 +161,12 @@ function assertPositiveSafeInteger(value: number, name: string): void {
   }
 }
 
-export type { OrderClause, PageOptions, PostgrestCountMode };
-
-function appendQueryParams(
-  params: Filters = {},
-  searchParams: URLSearchParams,
-) {
-  for (const [key, value] of Object.entries(params)) {
-    if (Array.isArray(value)) {
-      for (const v of value) {
-        searchParams.append(key, String(v));
-      }
-    } else {
-      searchParams.append(key, String(value));
-    }
-  }
-}
+export type {
+  Filter,
+  FilterExpression,
+  FilterField,
+  OrderClause,
+  PageOptions,
+  PostgrestCountMode,
+  RawFilter,
+};

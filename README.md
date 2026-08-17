@@ -203,8 +203,63 @@ query<Post>('post', {
 Advanced PostgREST expressions remain available through an explicit raw clause:
 
 ```ts
-query<Project>('project', {
+query<Item>('item', {
   order: [{ $raw: 'directors(last_name).desc' }],
+});
+```
+
+## Filtering
+
+Filters use a compact object syntax. Fields and operators in the same object are combined with
+`AND`; use `$and`, `$or`, and `$not` for explicit nested logic.
+
+```ts
+query<Post>('post', {
+  filter: {
+    status: { eq: 'published' },
+    $or: [
+      { title: { ilike: '*search term*' } },
+      { body: { ilike: '*search term*' } },
+    ],
+  },
+});
+```
+
+The object operators use PostgREST names directly. Supported operators include comparisons and
+patterns (`eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `ilike`, `match`, `imatch`), membership
+and null checks (`in`, `is`, `isdistinct`), full-text search (`fts`, `plfts`, `phfts`, `wfts`), and
+collection or range operators (`cs`, `cd`, `ov`, `sl`, `sr`, `nxr`, `nxl`, `adj`).
+
+Use `any` or `all` modifiers without repeating a field:
+
+```ts
+query<Person>('person', {
+  filter: {
+    last_name: { like: { any: ['O*', 'P*'] } },
+    username: { ilike: { all: ['user*', '*admin*'] } },
+  },
+});
+```
+
+Full-text search accepts a query and an optional PostgreSQL text-search configuration:
+
+```ts
+query<Article>('article', {
+  filter: {
+    body: { wfts: { query: 'warp drive', config: 'english' } },
+  },
+});
+```
+
+Properties set to `undefined` are omitted. Explicitly empty filters, predicates, logical groups,
+`in` lists, and `any`/`all` lists throw a `RangeError`. For JSON/composite paths, embedded aliases,
+resource-scoped groups, or future PostgREST syntax, use the raw field/value escape hatch:
+
+```ts
+query<Person>('person', {
+  filter: {
+    $raw: { field: 'metadata->>blood_type', value: 'eq.A-' },
+  },
 });
 ```
 
@@ -318,9 +373,9 @@ import { SupabaseTable } from 'warp-drive-supabase';
 
 import type { Database } from './database.types';
 
-interface Project {
-  [Type]: 'project';
-  readonly [SupabaseTable]?: Database['public']['Tables']['projects'];
+interface Item {
+  [Type]: 'item';
+  readonly [SupabaseTable]?: Database['public']['Tables']['items'];
 
   readonly id: string;
   readonly createdAt: string;
@@ -328,9 +383,15 @@ interface Project {
 ```
 
 The symbol property is optional and exists only for TypeScript; resource instances do not need to
-contain it. When the association is present, `query<Project>()` derives order fields from the exact
-keys of `Database['public']['Tables']['projects']['Row']`. Those generated keys replace fallback
+contain it. When the association is present, `query<Item>()` derives order fields from the exact
+keys of `Database['public']['Tables']['items']['Row']`. Those generated keys replace fallback
 guesses, so database-only columns are accepted while incorrect or camel-cased guesses are rejected.
+
+Filters receive the same progressive enhancement: base fields and operator values come from the
+generated `Row`, while dotted relationship paths come from Warp Drive resource and collection
+properties. A related resource's own `SupabaseTable` association further refines the fields and
+values available beneath that path. Without generated metadata, filters fall back to underscored
+scalar Warp Drive fields.
 
 The complete table definition is associated instead of only `Row`, retaining Supabase's `Insert`,
 `Update`, and `Relationships` metadata for additional progressive typing. Paginated query responses

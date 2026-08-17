@@ -18,7 +18,7 @@ export default class FailureTemplate extends Component {
   get failureRequest() {
     return this.store.request(
       query<Post>('post', {
-        filter: { fail: 'read' },
+        filter: { $raw: { field: 'fail', value: 'read' } },
         include: ['author', 'comments.author'],
       }),
     );

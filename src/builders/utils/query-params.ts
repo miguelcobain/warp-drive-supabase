@@ -95,7 +95,7 @@ export function serializePostgrestFields(fields: string[] = []): string {
 }
 
 function serializeOrderClause(order: OrderClause): string {
-  if ('$raw' in order) {
+  if (typeof order.$raw === 'string') {
     return order.$raw;
   }
 
