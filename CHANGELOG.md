@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2026-08-18
+
+### Added
+
+- Added generated Supabase views to typed relationship traversal and added explicit foreign-key
+  hints and cardinality for view relationships absent from generated metadata, including reverse
+  relationships whose foreign key belongs to another table in the schema.
+- Generated view rows now type embedded selection, filtering, existence checks, and supported
+  relationship ordering without raw clauses.
+
 ## [0.7.2] - 2026-08-17
 
 ### Fixed

@@ -26,6 +26,7 @@ import {
   type QueryBuilder,
   type QueryCallback,
   type RelationshipCardinality,
+  type ViewEmbedOptions,
 } from './utils/fluent-query';
 import type { SupabaseContext, SupabaseRow } from './supabase-table';
 import { pluralizeType, underscore } from '../utils/string';
@@ -122,4 +123,5 @@ export type {
   QueryBuilder,
   QueryCallback,
   RelationshipCardinality,
+  ViewEmbedOptions,
 };

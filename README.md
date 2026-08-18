@@ -216,6 +216,31 @@ by the Warp Drive schema.
 Use `selectRaw()` for trusted JSON paths, spreads, computed relationships, and column expressions.
 Raw selections may be combined with either named fields or `selectAll()`.
 
+Generated Supabase views can also be embedded when PostgREST infers their relationship from a base
+table foreign key. When generated database types include that inferred relationship, `embed()`
+derives its foreign-key hint, row, and cardinality like any table relationship:
+
+```ts
+query<Post>('post', (q) => {
+  const authorPreview = q
+    .embed('user_previews', {
+      as: 'author_previews',
+      using: 'posts_author_id_fkey',
+    })
+    .select(['id', 'name']);
+
+  q.where((filter) => filter.ilike(authorPreview, 'name', '*ada*'));
+});
+```
+
+If a generated view exists but its inferred relationship is absent from the generated metadata,
+the same `embed()` call accepts that view with a required `using` hint and explicit `cardinality`.
+The hint may name any generated foreign key in the attached schema, which also supports reverse
+relationships where the foreign key belongs to the view's underlying table rather than the current
+table.
+`cardinality` is builder metadata and is not emitted in the PostgREST URL; it controls whether the
+returned `EmbedRef` can be used for parent relationship ordering.
+
 The value returned by `embed()` is both a reference and a configurable embedded builder. This
 keeps straightforward embeds compact while preserving the same value for related filters and
 ordering:

@@ -28,6 +28,7 @@ export {
   type QueryCallbackFor,
   type QueryOptions,
   type RelationshipCardinality,
+  type ViewEmbedOptions,
 } from './query';
 export { SupabaseTable, type SupabaseTableDefinition } from './supabase-table';
 export { updateRecord } from './update-record';

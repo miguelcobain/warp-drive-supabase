@@ -29,6 +29,13 @@ interface Database {
             foreignKeyName: 'posts_author_id_fkey';
             columns: ['author_id'];
             isOneToOne: false;
+            referencedRelation: 'user_previews';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'posts_author_id_fkey';
+            columns: ['author_id'];
+            isOneToOne: false;
             referencedRelation: 'users';
             referencedColumns: ['id'];
           },
@@ -69,6 +76,31 @@ interface Database {
         ];
       };
     };
+    Views: {
+      user_previews: {
+        Row: {
+          id: string;
+          name: string;
+          active: boolean;
+        };
+        Relationships: [];
+      };
+      unlinked_user_previews: {
+        Row: {
+          id: string;
+          name: string;
+        };
+        Relationships: [];
+      };
+      post_previews: {
+        Row: {
+          id: string;
+          title: string;
+          author_id: string | null;
+        };
+        Relationships: [];
+      };
+    };
   };
 }
 
@@ -94,14 +126,21 @@ interface User {
   id: string;
 }
 
+interface AssociatedUser {
+  [Type]: 'user';
+  readonly [SupabaseTable]?: SupabaseTableDefinition<
+    Database,
+    'public',
+    'users'
+  >;
+  id: string;
+}
+
 describe('fluent query builder', () => {
   it('serializes UUID equality without literal double quotes', () => {
     const request = query<User>('user', (user) => {
       user.where((filter) => {
-        filter.eq(
-          'auth_user_id',
-          '11111111-1111-4111-8111-111111111111',
-        );
+        filter.eq('auth_user_id', '11111111-1111-4111-8111-111111111111');
       });
     });
 
@@ -114,10 +153,7 @@ describe('fluent query builder', () => {
     const request = query<User>('user', (user) => {
       user.where((filter) => {
         filter.eq('name', 'Ada Lovelace');
-        filter.eq(
-          'punctuation',
-          'comma, parentheses() quote" backslash\\',
-        );
+        filter.eq('punctuation', 'comma, parentheses() quote" backslash\\');
         filter.neq('legacy_name', 'Grace Hopper');
       });
     });
@@ -354,6 +390,67 @@ describe('fluent query builder', () => {
     expect(url.searchParams.get('order')).toBe('authors(created_at).desc');
   });
 
+  it('supports typed PostgREST relationships to views', () => {
+    const request = query<Post>('post', (q) => {
+      const authorPreview = q
+        .embed('user_previews', {
+          as: 'author_previews',
+          using: 'posts_author_id_fkey',
+        })
+        .select(['id', 'name']);
+
+      q.where((filter) => {
+        filter.ilike(authorPreview, 'name', '*ada*');
+        filter.exists(authorPreview);
+      });
+      q.orderBy(authorPreview, 'name');
+    });
+    const url = new URL(request.url, 'https://example.test');
+
+    expect(url.searchParams.get('select')).toBe(
+      'author_previews:user_previews!posts_author_id_fkey(id,name)',
+    );
+    expect(url.searchParams.get('author_previews.name')).toBe('ilike.*ada*');
+    expect(url.searchParams.get('author_previews')).toBe('not.is.null');
+    expect(url.searchParams.get('order')).toBe('author_previews(name)');
+  });
+
+  it('accepts explicit cardinality for view relationships missing from generated metadata', () => {
+    const request = query<Post>('post', (q) => {
+      const preview = q.embed('unlinked_user_previews', {
+        using: 'posts_author_id_fkey',
+        cardinality: 'many',
+      });
+      preview.select(['id', 'name']);
+      q.where((filter) => filter.exists(preview));
+    });
+    const url = new URL(request.url, 'https://example.test');
+
+    expect(url.searchParams.get('select')).toBe(
+      'unlinked_user_previews!posts_author_id_fkey(id,name)',
+    );
+    expect(url.searchParams.get('unlinked_user_previews')).toBe('not.is.null');
+  });
+
+  it('accepts schema foreign-key hints for reverse view relationships', () => {
+    const request = query<AssociatedUser>('user', (q) => {
+      const previews = q
+        .embed('post_previews', {
+          using: 'posts_author_id_fkey',
+          cardinality: 'many',
+        })
+        .select(['id', 'title']);
+
+      q.where((filter) => filter.exists(previews));
+    });
+    const url = new URL(request.url, 'https://example.test');
+
+    expect(url.searchParams.get('select')).toBe(
+      'post_previews!posts_author_id_fkey(id,title)',
+    );
+    expect(url.searchParams.get('post_previews')).toBe('not.is.null');
+  });
+
   it('preserves selection call order and deduplicates across methods', () => {
     const request = query<Post>('post', (q) => {
       q.select(['id']);
@@ -559,6 +656,14 @@ describe('fluent query builder', () => {
     expect(() =>
       query('post', (q) => q.orderBy('id', { direction: 'sideways' as never })),
     ).toThrow(RangeError);
+    expect(() =>
+      query('post', (q) =>
+        q.embed('related', {
+          using: 'related_fkey',
+          cardinality: 'sideways',
+        } as never),
+      ),
+    ).toThrow(RangeError);
   });
 
   it('rejects embed references from another query', () => {
@@ -616,6 +721,23 @@ describe('fluent query builder', () => {
         });
         // @ts-expect-error table is not directly related
         q.embed('missing_table');
+        // @ts-expect-error view relationships absent from generated metadata require cardinality
+        q.embed('unlinked_user_previews', {
+          using: 'posts_author_id_fkey',
+        });
+        // @ts-expect-error unlinked view relationships require an existing foreign-key hint
+        q.embed('unlinked_user_previews', {
+          using: 'wrong_fkey',
+          cardinality: 'one',
+        });
+        const authorPreview = q.embed('unlinked_user_previews', {
+          using: 'posts_author_id_fkey',
+          cardinality: 'many',
+        });
+        // @ts-expect-error generated view field is not present
+        authorPreview.select(['email']);
+        // @ts-expect-error parent ordering requires a to-one relationship
+        q.orderBy(authorPreview, 'name');
         // @ts-expect-error relationship path is not present in generated metadata
         q.embedAll(['comments.missing_table']);
         // @ts-expect-error foreign key does not connect posts and users

@@ -26,6 +26,15 @@ export interface EmbedOptions<
   join?: 'left' | 'inner';
 }
 
+export interface ViewEmbedOptions<
+  ForeignKey extends string = string,
+  Alias extends string = string,
+  Cardinality extends RelationshipCardinality = RelationshipCardinality,
+> extends EmbedOptions<ForeignKey, Alias> {
+  using: ForeignKey;
+  cardinality: Cardinality;
+}
+
 type StringKey<T> = Extract<keyof T, string>;
 type Field<Row> = string extends StringKey<Row> ? string : StringKey<Row>;
 type FieldValue<Row, Key extends string> = Key extends keyof Row
@@ -80,14 +89,22 @@ type SchemaOf<Context> = Context extends {
 
 type TablesOf<Context> =
   SchemaOf<Context> extends { Tables: infer Tables } ? Tables : never;
+type ViewsOf<Context> =
+  SchemaOf<Context> extends { Views: infer Views } ? Views : {};
 type TableName<Context> = Extract<keyof TablesOf<Context>, string>;
+type ViewName<Context> = Extract<keyof ViewsOf<Context>, string>;
+type RelationName<Context> = TableName<Context> | ViewName<Context>;
 type CurrentTable<Context> = Context extends { table: infer Table }
   ? Extract<Table, string>
   : never;
 type TableDefinition<
   Context,
   Table extends string,
-> = Table extends keyof TablesOf<Context> ? TablesOf<Context>[Table] : never;
+> = Table extends keyof TablesOf<Context>
+  ? TablesOf<Context>[Table]
+  : Table extends keyof ViewsOf<Context>
+    ? ViewsOf<Context>[Table]
+    : never;
 type RowFor<Context, Table extends string> =
   TableDefinition<Context, Table> extends infer Definition
     ? [Definition] extends [never]
@@ -125,14 +142,14 @@ type ReverseRelationship<Context, Target extends string> = Extract<
 type OutgoingTable<Context> = ReferencedRelation<
   RelationshipsFor<Context, CurrentTable<Context>>
 > &
-  TableName<Context>;
+  RelationName<Context>;
 type ReverseTable<Context> = {
-  [Table in TableName<Context>]: [ReverseRelationship<Context, Table>] extends [
+  [Table in RelationName<Context>]: [ReverseRelationship<Context, Table>] extends [
     never,
   ]
     ? never
     : Table;
-}[TableName<Context>];
+}[RelationName<Context>];
 
 type RelatedTable<Context> = [Context] extends [never]
   ? string
@@ -145,6 +162,13 @@ type RelatedForeignKey<Context, Target extends string> = [Context] extends [
       | OutgoingRelationship<Context, Target>
       | ReverseRelationship<Context, Target>
     >;
+type SchemaForeignKey<Context> = [Context] extends [never]
+  ? string
+  : {
+      [Table in TableName<Context>]: ForeignKeyName<
+        RelationshipsFor<Context, Table>
+      >;
+    }[TableName<Context>];
 type RelatedCardinality<Context, Target extends string> = [Context] extends [
   never,
 ]
@@ -222,6 +246,30 @@ export interface EmbedRef<
     RowFor<Context, Target>,
     RelatedCardinality<Context, Target>,
     Extract<Target, string>,
+    false,
+    ContextFor<Context, Target>,
+    Tail<Depth>
+  >;
+  embed<
+    Target extends Depth extends readonly [] ? never : ViewName<Context>,
+    const Cardinality extends RelationshipCardinality,
+    const NestedAlias extends string = Extract<Target, string>,
+  >(
+    table: Target,
+    options: ViewEmbedOptions<
+      SchemaForeignKey<Context>,
+      NestedAlias,
+      Cardinality
+    >,
+    configure?: EmbedCallback<
+      RowFor<Context, Target>,
+      ContextFor<Context, Target>,
+      Tail<Depth>
+    >,
+  ): EmbedRef<
+    RowFor<Context, Target>,
+    Cardinality,
+    NestedAlias,
     false,
     ContextFor<Context, Target>,
     Tail<Depth>
@@ -433,6 +481,26 @@ interface SelectionBuilder<
     RowFor<Context, Target>,
     RelatedCardinality<Context, Target>,
     Extract<Target, string>,
+    DirectChildren,
+    ContextFor<Context, Target>,
+    Tail<Depth>
+  >;
+  embed<
+    Target extends Depth extends readonly [] ? never : ViewName<Context>,
+    const Cardinality extends RelationshipCardinality,
+    const Alias extends string = Extract<Target, string>,
+  >(
+    table: Target,
+    options: ViewEmbedOptions<SchemaForeignKey<Context>, Alias, Cardinality>,
+    configure?: EmbedCallback<
+      RowFor<Context, Target>,
+      ContextFor<Context, Target>,
+      Tail<Depth>
+    >,
+  ): EmbedRef<
+    RowFor<Context, Target>,
+    Cardinality,
+    Alias,
     DirectChildren,
     ContextFor<Context, Target>,
     Tail<Depth>
@@ -661,6 +729,7 @@ abstract class SelectionBuilderImpl {
     table: string,
     optionsOrConfigure:
       | EmbedOptions
+      | ViewEmbedOptions
       | ((embed: EmbedBuilder<Record<string, unknown>>) => void) = {},
     configure?: (embed: EmbedBuilder<Record<string, unknown>>) => void,
   ): EmbedRef {
@@ -680,6 +749,13 @@ abstract class SelectionBuilderImpl {
       options.join !== 'inner'
     ) {
       throw new RangeError('embed join must be left or inner.');
+    }
+    if (
+      'cardinality' in options &&
+      options.cardinality !== 'one' &&
+      options.cardinality !== 'many'
+    ) {
+      throw new RangeError('embed cardinality must be one or many.');
     }
     if (this.selection.embeds.some((embed) => embed.alias === alias)) {
       throw new RangeError(`embed alias ${alias} is already in use.`);
