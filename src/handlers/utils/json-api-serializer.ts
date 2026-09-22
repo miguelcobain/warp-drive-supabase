@@ -91,16 +91,30 @@ export function serializeToJsonAPI(
         }
       } else if (isToOneRelationshipField(field)) {
         const relationshipName = getFieldName(field, key);
-        const relId = record[getRelationshipIdKey(field, key)];
+        const relationshipIdKey = getRelationshipIdKey(field, key);
+        const relationshipIncludeKey = getRelationshipIncludeKey(field, key);
+        const hasRelationshipId = relationshipIdKey in record;
+        const hasIncludedRelationship = relationshipIncludeKey in record;
         const relType = field.type;
         if (typeof relType !== 'string') {
           continue;
         }
+
+        if (!hasRelationshipId && !hasIncludedRelationship) {
+          continue;
+        }
+
+        const includedRel = record[relationshipIncludeKey];
+        const relId = hasRelationshipId
+          ? record[relationshipIdKey]
+          : includedRel?.id;
         relationships[relationshipName] = {
-          data: relId ? { id: String(relId), type: relType } : null,
+          data:
+            relId === null || relId === undefined
+              ? null
+              : { id: String(relId), type: relType },
         };
 
-        const includedRel = record[getRelationshipIncludeKey(field, key)];
         if (includedRel?.id) {
           const includedMapKey = `${relType}-${includedRel.id}`;
           if (!includedMap.has(includedMapKey)) {

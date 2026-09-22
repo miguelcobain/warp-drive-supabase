@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.6] - 2026-09-22
+
+### Fixed
+
+- Omitted unselected to-one relationships from partial-record JSON:API documents instead of
+  serializing them as null, preventing partial embeds from clearing relationships already in the
+  Warp Drive identity map.
+- Derived to-one linkage from an embedded record when its foreign-key column was not selected.
+
 ## [0.7.5] - 2026-09-22
 
 ### Fixed

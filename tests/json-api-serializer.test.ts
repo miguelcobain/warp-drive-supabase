@@ -118,4 +118,75 @@ describe('serializeToJsonAPI', () => {
       },
     });
   });
+
+  it('omits unselected to-one relationships from partial records', () => {
+    const schemaService = createSchemaService();
+    const document = serializeToJsonAPI(
+      schemaService as never,
+      {
+        id: 1,
+        title: 'Post title',
+      },
+      'post'
+    );
+
+    expect(document.data).toMatchObject({
+      id: '1',
+      type: 'post',
+      relationships: {},
+    });
+  });
+
+  it('preserves explicitly selected null to-one relationships', () => {
+    const schemaService = createSchemaService();
+    const document = serializeToJsonAPI(
+      schemaService as never,
+      {
+        id: 1,
+        author_id: null,
+      },
+      'post'
+    );
+
+    expect(document.data).toMatchObject({
+      relationships: {
+        author: {
+          data: null,
+        },
+      },
+    });
+  });
+
+  it('derives to-one linkage from an embed when the foreign key is unselected', () => {
+    const schemaService = createSchemaService();
+    const document = serializeToJsonAPI(
+      schemaService as never,
+      {
+        id: 1,
+        authors: {
+          id: 9,
+          name: 'Ada',
+        },
+      },
+      'post'
+    );
+
+    expect(document.data).toMatchObject({
+      relationships: {
+        author: {
+          data: {
+            id: '9',
+            type: 'user',
+          },
+        },
+      },
+    });
+    expect(document.included).toEqual([
+      expect.objectContaining({
+        id: '9',
+        type: 'user',
+        attributes: { name: 'Ada' },
+      }),
+    ]);
+  });
 });
