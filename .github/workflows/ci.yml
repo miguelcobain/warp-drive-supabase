@@ -52,14 +52,17 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - name: Pin Warp Drive consumer version
-        run: >
-          pnpm --filter test-app add -D
-          @warp-drive/core@${{ matrix.warp_drive_version }}
-          @warp-drive/ember@${{ matrix.warp_drive_version }}
-          @warp-drive/json-api@${{ matrix.warp_drive_version }}
-          @warp-drive/legacy@${{ matrix.warp_drive_version }}
-          @warp-drive/utilities@${{ matrix.warp_drive_version }}
+      - name: Pin Warp Drive workspace version
+        run: |
+          pnpm add --workspace-root --save-dev \
+            @warp-drive/core@${{ matrix.warp_drive_version }} \
+            @warp-drive/utilities@${{ matrix.warp_drive_version }}
+          pnpm --filter test-app add --save-dev \
+            @warp-drive/core@${{ matrix.warp_drive_version }} \
+            @warp-drive/ember@${{ matrix.warp_drive_version }} \
+            @warp-drive/json-api@${{ matrix.warp_drive_version }} \
+            @warp-drive/legacy@${{ matrix.warp_drive_version }} \
+            @warp-drive/utilities@${{ matrix.warp_drive_version }}
       - run: pnpm --filter test-app lint
       - run: pnpm test:app
 
