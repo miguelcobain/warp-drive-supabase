@@ -18,14 +18,11 @@ export const SupabaseJsonApiHandler: Handler = {
 
     const result = await next(prepared.request);
 
-    if (
+    const isErrorResponse =
       'response' in result &&
       result.response &&
       'ok' in result.response &&
-      result.response.ok === false
-    ) {
-      return result;
-    }
+      result.response.ok === false;
 
     // get JSON body (Fetch usually gives you parsed JSON in result.content; fall back to response.json())
     const raw =
@@ -36,6 +33,13 @@ export const SupabaseJsonApiHandler: Handler = {
       typeof result.response.json === 'function'
         ? await result.response.json()
         : undefined);
+
+    if (isErrorResponse) {
+      return result.content === undefined && raw !== undefined
+        ? { ...result, content: raw }
+        : result;
+    }
+
     if (raw === undefined) {
       return result;
     }
