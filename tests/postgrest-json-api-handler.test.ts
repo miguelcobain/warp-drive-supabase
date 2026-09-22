@@ -81,6 +81,44 @@ describe('SupabaseJsonApiHandler', () => {
     expect(result).toBe(response);
   });
 
+  it('serializes rejected PostgREST responses as JSON:API errors', async () => {
+    const error = Object.assign(new Error('Not Acceptable'), {
+      status: 406,
+      content: {
+        code: 'PGRST116',
+        details: 'The result contains 0 rows',
+        hint: null,
+        message: 'Cannot coerce the result to a single JSON object',
+      },
+    });
+    const next = vi.fn(async () => {
+      throw error;
+    });
+
+    const request = SupabaseJsonApiHandler.request(
+      {
+        request: {
+          headers: new Headers(),
+          options: { type: 'post' },
+          store: { schema: createSchemaService() },
+        },
+      } as never,
+      next as never,
+    );
+
+    await expect(request).rejects.toBe(error);
+    expect(error.content).toEqual({
+      errors: [
+        {
+          code: 'PGRST116',
+          title: 'Cannot coerce the result to a single JSON object',
+          status: '406',
+          detail: 'The result contains 0 rows',
+        },
+      ],
+    });
+  });
+
   it('adds JSON:API pagination links and metadata from Content-Range', async () => {
     const next = vi.fn(async () => ({
       response: new Response(JSON.stringify([]), {

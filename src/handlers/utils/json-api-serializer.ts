@@ -1,4 +1,5 @@
 import type { SchemaService } from '@warp-drive/core/types';
+import type { ApiError } from '@warp-drive/core/types/spec/error';
 import {
   getFieldName,
   getFieldSourceKey,
@@ -28,6 +29,33 @@ interface JSONAPIResource {
 interface JSONAPIResponse {
   data: JSONAPIResource | JSONAPIResource[] | null;
   included?: JSONAPIResource[];
+}
+
+export function serializePostgrestError(
+  content: unknown,
+  status: unknown,
+): { errors: ApiError[] } | undefined {
+  if (typeof content !== 'object' || content === null) return;
+
+  const code = Reflect.get(content, 'code');
+  const message = Reflect.get(content, 'message');
+  if (typeof code !== 'string' || typeof message !== 'string') return;
+
+  const error: ApiError = { code, title: message };
+  const details = Reflect.get(content, 'details');
+  const hint = Reflect.get(content, 'hint');
+
+  if (typeof status === 'number' || typeof status === 'string') {
+    error.status = String(status);
+  }
+  if (typeof details === 'string') {
+    error.detail = details;
+  }
+  if (typeof hint === 'string') {
+    error.meta = { hint };
+  }
+
+  return { errors: [error] };
 }
 
 export function serializeToJsonAPI(

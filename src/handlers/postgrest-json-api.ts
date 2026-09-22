@@ -1,7 +1,10 @@
 import type { Handler, NextFn } from '@warp-drive/core/request';
 import type { StoreRequestContext } from '@warp-drive/core';
 import type { StructuredDataDocument } from '@warp-drive/core/types/request';
-import { serializeToJsonAPI } from './utils/json-api-serializer';
+import {
+  serializePostgrestError,
+  serializeToJsonAPI,
+} from './utils/json-api-serializer';
 import {
   buildJsonApiPagination,
   preparePaginatedRequest,
@@ -16,7 +19,24 @@ export const SupabaseJsonApiHandler: Handler = {
       return next(context.request);
     }
 
-    const result = await next(prepared.request);
+    let result;
+
+    try {
+      result = await next(prepared.request);
+    } catch (error) {
+      if (typeof error === 'object' && error !== null) {
+        const content = serializePostgrestError(
+          Reflect.get(error, 'content'),
+          Reflect.get(error, 'status'),
+        );
+
+        if (content) {
+          Reflect.set(error, 'content', content);
+        }
+      }
+
+      throw error;
+    }
 
     const isErrorResponse =
       'response' in result &&
@@ -35,9 +55,12 @@ export const SupabaseJsonApiHandler: Handler = {
         : undefined);
 
     if (isErrorResponse) {
-      return result.content === undefined && raw !== undefined
-        ? { ...result, content: raw }
-        : result;
+      const content = serializePostgrestError(
+        raw,
+        result.response?.status,
+      );
+
+      return (content ? { ...result, content } : result) as StructuredDataDocument<T>;
     }
 
     if (raw === undefined) {
