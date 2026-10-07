@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.8] - 2026-10-07
+
+### Fixed
+
+- Restored ID-only PostgREST embeds in JSON:API `included` for to-one and to-many relationships.
+  This reverts the 0.7.7 serialization change to avoid missing-resource validation errors in
+  Warp Drive 5.9.1 while relationship-link support is investigated. The previous empty-resource
+  warnings may still occur.
+
 ## [0.7.7] - 2026-10-07
 
 ### Fixed

@@ -31,13 +31,6 @@ interface JSONAPIResponse {
   included?: JSONAPIResource[];
 }
 
-function hasResourceContent(resource: JSONAPIResource): boolean {
-  return (
-    Object.keys(resource.attributes).length > 0 ||
-    Object.keys(resource.relationships).length > 0
-  );
-}
-
 export function serializePostgrestError(
   content: unknown,
   status: unknown,
@@ -130,9 +123,7 @@ export function serializeToJsonAPI(
               continue;
             }
             const serialized = serializeRecord(includedRel, relType, nextTrail);
-            if (hasResourceContent(serialized)) {
-              includedMap.set(includedMapKey, serialized);
-            }
+            includedMap.set(includedMapKey, serialized);
           }
         }
       } else if (isToManyRelationshipField(field)) {
@@ -162,9 +153,7 @@ export function serializeToJsonAPI(
                 continue;
               }
               const serialized = serializeRecord(rel, relType, nextTrail);
-              if (hasResourceContent(serialized)) {
-                includedMap.set(includedMapKey, serialized);
-              }
+              includedMap.set(includedMapKey, serialized);
             }
           }
         }
