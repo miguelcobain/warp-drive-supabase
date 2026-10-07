@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.7] - 2026-10-07
+
+### Fixed
+
+- Kept ID-only PostgREST embeds as relationship linkage for both to-one and to-many relationships,
+  omitting them from JSON:API `included` to prevent Warp Drive warnings about empty resources.
+  Embeds with selected attributes or relationships remain included, and null and empty
+  relationships retain their existing behavior.
+
 ## [0.7.6] - 2026-09-22
 
 ### Fixed

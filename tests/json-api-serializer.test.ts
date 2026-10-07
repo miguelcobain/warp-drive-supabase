@@ -3,6 +3,21 @@ import { serializeToJsonAPI } from '../src/handlers/utils/json-api-serializer';
 function createSchemaService() {
   return {
     fields({ type }: { type: string }) {
+      if (type === 'project') {
+        return new Map([
+          ['id', { kind: 'field', name: 'id' }],
+          ['organization', { kind: 'belongsTo', name: 'organization', type: 'organization' }],
+        ]);
+      }
+
+      if (type === 'organization') {
+        return new Map([
+          ['id', { kind: 'field', name: 'id' }],
+          ['name', { kind: 'attribute', name: 'name' }],
+          ['owner', { kind: 'resource', name: 'owner', type: 'user' }],
+        ]);
+      }
+
       if (type === 'post') {
         return new Map([
           ['id', { kind: 'field', name: 'id' }],
@@ -30,6 +45,207 @@ function createSchemaService() {
 }
 
 describe('serializeToJsonAPI', () => {
+  it.each([true, false])(
+    'keeps ID-only belongs-to embeds as linkage (foreign key selected: %s)',
+    (hasForeignKey) => {
+      const document = serializeToJsonAPI(
+        createSchemaService() as never,
+        {
+          id: 'project-1',
+          ...(hasForeignKey ? { organization_id: 'organization-1' } : {}),
+          organizations: { id: 'organization-1' },
+        },
+        'project'
+      );
+
+      expect(document).toEqual({
+        data: {
+          id: 'project-1',
+          type: 'project',
+          attributes: {},
+          relationships: {
+            organization: { data: { type: 'organization', id: 'organization-1' } },
+          },
+        },
+      });
+      expect(document).not.toHaveProperty('included');
+    }
+  );
+
+  it.each(['Example Organization', null])(
+    'includes belongs-to embeds with a selected attribute valued %s',
+    (name) => {
+      const document = serializeToJsonAPI(
+        createSchemaService() as never,
+        {
+          id: 'project-1',
+          organizations: { id: 'organization-1', name },
+        },
+        'project'
+      );
+
+      expect(document.data).toMatchObject({
+        relationships: {
+          organization: { data: { type: 'organization', id: 'organization-1' } },
+        },
+      });
+      expect(document.included).toEqual([
+        {
+          id: 'organization-1',
+          type: 'organization',
+          attributes: { name },
+          relationships: {},
+        },
+      ]);
+    }
+  );
+
+  it('includes belongs-to embeds with relationships but no attributes', () => {
+    const document = serializeToJsonAPI(
+      createSchemaService() as never,
+      {
+        id: 'project-1',
+        organizations: {
+          id: 'organization-1',
+          owners: { id: 'user-1' },
+        },
+      },
+      'project'
+    );
+
+    expect(document.included).toEqual([
+      {
+        id: 'organization-1',
+        type: 'organization',
+        attributes: {},
+        relationships: {
+          owner: { data: { type: 'user', id: 'user-1' } },
+        },
+      },
+    ]);
+  });
+
+  it('includes a populated embed after an ID-only embed of the same record', () => {
+    const document = serializeToJsonAPI(
+      createSchemaService() as never,
+      [
+        { id: 'project-1', organizations: { id: 'organization-1' } },
+        {
+          id: 'project-2',
+          organizations: { id: 'organization-1', name: 'Example Organization' },
+        },
+      ],
+      'project'
+    );
+
+    expect(document.data).toEqual([
+      expect.objectContaining({
+        id: 'project-1',
+        relationships: {
+          organization: { data: { type: 'organization', id: 'organization-1' } },
+        },
+      }),
+      expect.objectContaining({
+        id: 'project-2',
+        relationships: {
+          organization: { data: { type: 'organization', id: 'organization-1' } },
+        },
+      }),
+    ]);
+    expect(document.included).toEqual([
+      {
+        id: 'organization-1',
+        type: 'organization',
+        attributes: { name: 'Example Organization' },
+        relationships: {},
+      },
+    ]);
+  });
+
+  it('preserves null belongs-to embeds', () => {
+    const document = serializeToJsonAPI(
+      createSchemaService() as never,
+      { id: 'project-1', organizations: null },
+      'project'
+    );
+
+    expect(document.data).toMatchObject({
+      relationships: { organization: { data: null } },
+    });
+    expect(document).not.toHaveProperty('included');
+  });
+
+  it('preserves empty to-many embeds', () => {
+    const document = serializeToJsonAPI(
+      createSchemaService() as never,
+      { id: 'post-1', comments: [] },
+      'post'
+    );
+
+    expect(document.data).toMatchObject({
+      relationships: { comments: { data: [] } },
+    });
+    expect(document).not.toHaveProperty('included');
+  });
+
+  it('keeps ID-only to-many embeds as linkage', () => {
+    const document = serializeToJsonAPI(
+      createSchemaService() as never,
+      { id: 'post-1', comments: [{ id: 'comment-1' }] },
+      'post'
+    );
+
+    expect(document.data).toMatchObject({
+      relationships: {
+        comments: { data: [{ type: 'comment', id: 'comment-1' }] },
+      },
+    });
+    expect(document).not.toHaveProperty('included');
+  });
+
+  it('includes only populated rows from a mixed to-many embed', () => {
+    const document = serializeToJsonAPI(
+      createSchemaService() as never,
+      {
+        id: 'post-1',
+        comments: [
+          { id: 'comment-1' },
+          { id: 'comment-2', body: 'Example comment' },
+          { id: 'comment-3', authors: { id: 'user-1' } },
+        ],
+      },
+      'post'
+    );
+
+    expect(document.data).toMatchObject({
+      relationships: {
+        comments: {
+          data: [
+            { type: 'comment', id: 'comment-1' },
+            { type: 'comment', id: 'comment-2' },
+            { type: 'comment', id: 'comment-3' },
+          ],
+        },
+      },
+    });
+    expect(document.included).toEqual([
+      {
+        id: 'comment-2',
+        type: 'comment',
+        attributes: { body: 'Example comment' },
+        relationships: {},
+      },
+      {
+        id: 'comment-3',
+        type: 'comment',
+        attributes: {},
+        relationships: {
+          author: { data: { type: 'user', id: 'user-1' } },
+        },
+      },
+    ]);
+  });
+
   it('serializes attributes and included relationships', () => {
     const schemaService = createSchemaService();
     const document = serializeToJsonAPI(
