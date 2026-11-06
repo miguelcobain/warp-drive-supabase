@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.9] - 2026-11-06
+
+### Fixed
+
+- Preserved optional string `lid` values from PostgREST response rows on normalized JSON:API
+  resources, including embedded records, so Warp Drive can associate server-assigned IDs with
+  existing client-created records. Responses without `lid` remain unchanged, and ordinary CRUD
+  requests do not automatically send local IDs as database columns.
+
 ## [0.7.8] - 2026-10-07
 
 ### Fixed
