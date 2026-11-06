@@ -477,6 +477,11 @@ export default class PostEditor extends Component {
 
 `SupabaseUpdatesHandler` serializes changed attributes using schema `sourceKey` values when available, and falls back to underscored field names otherwise.
 
+Response rows may include a string `lid` alongside their server-assigned `id`. The JSON:API handler
+preserves it on each resource, including embedded records, so Warp Drive can associate the returned
+ID with an existing client-created record. Your application or server must arrange for that response
+metadata; ordinary CRUD requests do not automatically send local IDs as database columns.
+
 ## TypeScript
 
 Use your Warp Drive resource type as the generic parameter for typed result documents. To also type

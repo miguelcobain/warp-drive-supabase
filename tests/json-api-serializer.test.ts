@@ -7,9 +7,15 @@ function createSchemaService() {
         return new Map([
           ['id', { kind: 'field', name: 'id' }],
           ['title', { kind: 'attribute', name: 'title' }],
-          ['createdAt', { kind: 'field', name: 'createdAt', sourceKey: 'created_at' }],
+          [
+            'createdAt',
+            { kind: 'field', name: 'createdAt', sourceKey: 'created_at' },
+          ],
           ['author', { kind: 'resource', name: 'author', type: 'user' }],
-          ['comments', { kind: 'collection', name: 'comments', type: 'comment' }],
+          [
+            'comments',
+            { kind: 'collection', name: 'comments', type: 'comment' },
+          ],
         ]);
       }
 
@@ -30,6 +36,130 @@ function createSchemaService() {
 }
 
 describe('serializeToJsonAPI', () => {
+  it.each(['post-new', ''])(
+    'preserves the string lid %j on a resource',
+    (lid) => {
+      expect(
+        serializeToJsonAPI(
+          createSchemaService() as never,
+          { id: 1, lid, title: 'Draft' },
+          'post'
+        )
+      ).toStrictEqual({
+        data: {
+          id: '1',
+          type: 'post',
+          lid,
+          attributes: { title: 'Draft' },
+          relationships: {},
+        },
+      });
+    }
+  );
+
+  it('preserves lids independently in mixed collection responses', () => {
+    expect(
+      serializeToJsonAPI(
+        createSchemaService() as never,
+        [{ id: 1, lid: 'post-new' }, { id: 2 }, { id: 3, lid: 'another-post' }],
+        'post'
+      )
+    ).toStrictEqual({
+      data: [
+        {
+          id: '1',
+          type: 'post',
+          lid: 'post-new',
+          attributes: {},
+          relationships: {},
+        },
+        { id: '2', type: 'post', attributes: {}, relationships: {} },
+        {
+          id: '3',
+          type: 'post',
+          lid: 'another-post',
+          attributes: {},
+          relationships: {},
+        },
+      ],
+    });
+  });
+
+  it.each([
+    {},
+    { lid: undefined },
+    { lid: null },
+    { lid: 123 },
+    { lid: false },
+    { lid: {} },
+  ])('omits absent or non-string lids: %j', (identity) => {
+    expect(
+      serializeToJsonAPI(
+        createSchemaService() as never,
+        { id: 1, ...identity },
+        'post'
+      )
+    ).toStrictEqual({
+      data: { id: '1', type: 'post', attributes: {}, relationships: {} },
+    });
+  });
+
+  it('preserves lids on to-one, to-many, and nested included resources', () => {
+    const document = serializeToJsonAPI(
+      createSchemaService() as never,
+      {
+        id: 1,
+        lid: 'post-new',
+        authors: { id: 9, lid: 'author-new', name: 'Ada' },
+        comments: [
+          {
+            id: 2,
+            lid: 'comment-new',
+            body: 'First comment',
+            authors: { id: 10, lid: 'comment-author-new', name: 'Grace' },
+          },
+        ],
+      },
+      'post'
+    );
+
+    expect(document).toStrictEqual({
+      data: {
+        id: '1',
+        type: 'post',
+        lid: 'post-new',
+        attributes: {},
+        relationships: {
+          author: { data: { id: '9', type: 'user' } },
+          comments: { data: [{ id: '2', type: 'comment' }] },
+        },
+      },
+      included: [
+        {
+          id: '9',
+          type: 'user',
+          lid: 'author-new',
+          attributes: { name: 'Ada' },
+          relationships: {},
+        },
+        {
+          id: '10',
+          type: 'user',
+          lid: 'comment-author-new',
+          attributes: { name: 'Grace' },
+          relationships: {},
+        },
+        {
+          id: '2',
+          type: 'comment',
+          lid: 'comment-new',
+          attributes: { body: 'First comment' },
+          relationships: { author: { data: { id: '10', type: 'user' } } },
+        },
+      ],
+    });
+  });
+
   it('serializes attributes and included relationships', () => {
     const schemaService = createSchemaService();
     const document = serializeToJsonAPI(
@@ -58,7 +188,7 @@ describe('serializeToJsonAPI', () => {
       'post'
     );
 
-    expect(document.data).toMatchObject({
+    expect(document.data).toStrictEqual({
       id: '1',
       type: 'post',
       attributes: {
@@ -78,26 +208,28 @@ describe('serializeToJsonAPI', () => {
       },
     });
 
-    expect(document.included).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: '9',
-          type: 'user',
-          attributes: { name: 'Ada' },
-        }),
-        expect.objectContaining({
-          id: '2',
-          type: 'comment',
-          attributes: { body: 'First comment' },
-        }),
-      ])
-    );
+    expect(document.included).toStrictEqual([
+      {
+        id: '9',
+        type: 'user',
+        attributes: { name: 'Ada' },
+        relationships: {},
+      },
+      {
+        id: '2',
+        type: 'comment',
+        attributes: { body: 'First comment' },
+        relationships: { author: { data: { id: '9', type: 'user' } } },
+      },
+    ]);
   });
 
   it('supports null payloads', () => {
     const schemaService = createSchemaService();
 
-    expect(serializeToJsonAPI(schemaService as never, null, 'post')).toEqual({ data: null });
+    expect(serializeToJsonAPI(schemaService as never, null, 'post')).toEqual({
+      data: null,
+    });
   });
 
   it('uses sourceKey metadata for field serialization', () => {

@@ -34,6 +34,7 @@ describe('SupabaseUpdatesHandler', () => {
     )) as { body: string };
 
     expect(next).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(result.body)).not.toHaveProperty('lid');
     expect(result.body).toBe(
       JSON.stringify({
         title: 'New title',
@@ -103,6 +104,7 @@ describe('SupabaseUpdatesHandler', () => {
       next as never
     )) as { body: string };
 
+    expect(JSON.parse(result.body)).not.toHaveProperty('lid');
     expect(result.body).toBe(
       JSON.stringify({
         title: 'Draft',

@@ -19,6 +19,7 @@ interface JSONAPIRelationship {
 interface JSONAPIResource {
   id: string;
   type: string;
+  lid?: string;
   attributes: Record<string, unknown>;
   relationships: Record<
     string,
@@ -163,6 +164,7 @@ export function serializeToJsonAPI(
     return {
       id: String(record['id']),
       type,
+      ...(typeof record['lid'] === 'string' ? { lid: record['lid'] } : {}),
       attributes,
       relationships,
     };
